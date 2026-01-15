@@ -18,8 +18,8 @@ related:
   tutorials:
     - title: "Getting Started"
       url: "/drasi-server/getting-started/"
-    - title: "PostgreSQL Change Detection"
-      url: "/drasi-server/tutorials/postgresql-change-detection/"
+    - title: "SLA Breach Alerting"
+      url: "/drasi-server/tutorials/sla-breach-alerting/"
   reference:
     - title: "Configuration Reference"
       url: "/drasi-server/reference/configuration/"

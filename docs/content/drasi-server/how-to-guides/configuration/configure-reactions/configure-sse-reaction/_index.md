@@ -9,8 +9,8 @@ related:
     - title: "Reactions"
       url: "/concepts/reactions/"
   tutorials:
-    - title: "Real-time SSE Dashboard"
-      url: "/drasi-server/tutorials/realtime-sse-dashboard/"
+    - title: "Live Order Dashboard"
+      url: "/drasi-server/tutorials/live-order-dashboard/"
   howto:
     - title: "Configure HTTP Reaction"
       url: "/drasi-server/how-to-guides/configuration/configure-reactions/configure-http-reaction/"

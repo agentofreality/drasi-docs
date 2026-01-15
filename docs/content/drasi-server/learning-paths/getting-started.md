@@ -37,8 +37,8 @@ description: >
 <div class="step-number">3</div>
 <div class="step-content">
 <span class="step-type step-type--tutorial">Tutorial</span>
-<h4><a href="/drasi-server/tutorials/local-development/">Local Development Setup</a></h4>
-<p>Set up a complete development environment</p>
+<h4><a href="/drasi-server/tutorials/sla-breach-alerting/">SLA Breach Alerting</a></h4>
+<p>Build time-based alerts with multi-table joins</p>
 <span class="step-duration">30 min</span>
 </div>
 </div>
@@ -46,8 +46,8 @@ description: >
 <div class="step-number">4</div>
 <div class="step-content">
 <span class="step-type step-type--tutorial">Tutorial</span>
-<h4><a href="/drasi-server/tutorials/postgresql-change-detection/">PostgreSQL Change Detection</a></h4>
-<p>Monitor a PostgreSQL database for changes</p>
+<h4><a href="/drasi-server/tutorials/smart-reorder-recommendations/">Smart Reorder Recommendations</a></h4>
+<p>Complex queries with aggregations and computed fields</p>
 <span class="step-duration">45 min</span>
 </div>
 </div>

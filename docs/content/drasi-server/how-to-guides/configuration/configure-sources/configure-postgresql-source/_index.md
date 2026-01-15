@@ -9,8 +9,8 @@ related:
     - title: "Sources"
       url: "/concepts/sources/"
   tutorials:
-    - title: "PostgreSQL Change Detection"
-      url: "/drasi-server/tutorials/postgresql-change-detection/"
+    - title: "SLA Breach Alerting"
+      url: "/drasi-server/tutorials/sla-breach-alerting/"
   howto:
     - title: "Configure Bootstrap Providers"
       url: "/drasi-server/how-to-guides/configuration/configure-bootstrap-providers/"

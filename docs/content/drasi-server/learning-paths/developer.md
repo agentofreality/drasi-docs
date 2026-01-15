@@ -37,9 +37,9 @@ description: >
 <div class="step-number">3</div>
 <div class="step-content">
 <span class="step-type step-type--tutorial">Tutorial</span>
-<h4><a href="/drasi-server/tutorials/realtime-sse-dashboard/">Build Real-time Dashboard</a></h4>
-<p>Create a live SSE dashboard</p>
-<span class="step-duration">45 min</span>
+<h4><a href="/drasi-server/tutorials/live-order-dashboard/">Build Live Order Dashboard</a></h4>
+<p>Create a real-time operations dashboard</p>
+<span class="step-duration">60 min</span>
 </div>
 </div>
 <div class="path-step">

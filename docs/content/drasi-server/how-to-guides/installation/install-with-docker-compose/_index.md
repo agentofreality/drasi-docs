@@ -8,8 +8,8 @@ related:
   tutorials:
     - title: "Getting Started"
       url: "/drasi-server/getting-started/"
-    - title: "Local Development"
-      url: "/drasi-server/tutorials/local-development/"
+    - title: "SLA Breach Alerting"
+      url: "/drasi-server/tutorials/sla-breach-alerting/"
   howto:
     - title: "Docker Installation"
       url: "/drasi-server/how-to-guides/installation/install-with-docker/"
