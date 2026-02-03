@@ -36,13 +36,32 @@ docker --version
 docker pull ghcr.io/drasi-project/drasi-server:latest
 ```
 
+### Create a Configuration File
+
+Drasi Server requires a configuration file. Create a minimal configuration to get started:
+
+```bash
+mkdir -p config
+cat > config/server.yaml << 'EOF'
+id: my-drasi-server
+port: 8080
+sources: []
+queries: []
+reactions: []
+EOF
+```
+
+See the [Configuration Reference](/drasi-server/reference/configuration/) for complete configuration options.
+
 ### Run the Container
 
 ```bash
 docker run -d \
   --name drasi-server \
   -p 8080:8080 \
-  ghcr.io/drasi-project/drasi-server:latest
+  -v $(pwd)/config:/config:ro \
+  ghcr.io/drasi-project/drasi-server:latest \
+  --config /config/server.yaml
 ```
 
 ### Verify Installation
@@ -54,7 +73,7 @@ curl http://localhost:8080/health
 Expected response:
 
 ```json
-{"status":"healthy"}
+{"status":"ok","timestamp":"2026-02-03T12:00:00.000000000Z"}
 ```
 
 ## Configuration Options
