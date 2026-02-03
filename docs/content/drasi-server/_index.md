@@ -63,31 +63,13 @@ description: "Standalone Drasi server for process or container deployment"
 
 ## When to Use Drasi Server
 
-<p class="section-intro">Choose Drasi Server for development, testing, and small-scale production deployments of Drasi-powered change-driven solutions.</p>
+Drasi Server is ideal when you need **full Drasi functionality** as a standalone process without Kubernetes:
 
-<div class="card-grid card-grid--3">
-  <div class="unified-card unified-card--concepts unified-card--static">
-    <div class="unified-card-icon"><i class="fas fa-laptop-code"></i></div>
-    <div class="unified-card-content">
-      <h3 class="unified-card-title">Local Development</h3>
-      <p class="unified-card-summary">Run Drasi on your development machine for rapid iteration and testing.</p>
-    </div>
-  </div>
-  <div class="unified-card unified-card--concepts unified-card--static">
-    <div class="unified-card-icon"><i class="fab fa-docker"></i></div>
-    <div class="unified-card-content">
-      <h3 class="unified-card-title">Docker Environments</h3>
-      <p class="unified-card-summary">Integrate seamlessly with Docker Compose and container-based workflows.</p>
-    </div>
-  </div>
-  <div class="unified-card unified-card--concepts unified-card--static">
-    <div class="unified-card-icon"><i class="fas fa-feather-alt"></i></div>
-    <div class="unified-card-content">
-      <h3 class="unified-card-title">Small-Scale Deployments</h3>
-      <p class="unified-card-summary">Full Drasi functionality using a single-process deployment.</p>
-    </div>
-  </div>
-</div>
+- **Local development** — Run Drasi on your development machine for rapid iteration and testing without setting up a cluster
+- **Docker environments** — Integrate seamlessly with Docker Compose and container-based workflows
+- **Non-Kubernetes production** — Deploy Drasi in environments where Kubernetes isn't available or practical
+- **Edge deployments** — Run change processing closer to your data sources with minimal infrastructure
+- **Proof of concept** — Validate Drasi solutions quickly before committing to a full Kubernetes deployment
 
 ## Explore Drasi Server
 
