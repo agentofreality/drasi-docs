@@ -19,9 +19,9 @@ related:
     - title: "Query Language Reference"
       url: "/reference/query-language/"
     - title: "Available Sources"
-      url: "/drasi-lib/sources/"
+      url: "/drasi-lib/reference/sources/"
     - title: "Available Reactions"
-      url: "/drasi-lib/reactions/"
+      url: "/drasi-lib/reference/reactions/"
 ---
 
 The quickest way to get started using drasi-lib is to create a simple example. This minimal example monitors a mock sensor source and reacts when temperature exceeds 75°C:

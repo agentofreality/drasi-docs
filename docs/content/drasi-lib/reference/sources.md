@@ -9,6 +9,9 @@ related:
   tutorials:
     - title: "Getting Started"
       url: "/drasi-lib/getting-started/"
+  reference:
+    - title: "Available Reactions"
+      url: "/drasi-lib/reference/reactions/"
   concepts:
     - title: "Sources"
       url: "/concepts/sources/"
