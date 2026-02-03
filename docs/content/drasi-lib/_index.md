@@ -95,6 +95,15 @@ description: "Build Change-driven Rust solutions"
 <p class="section-intro">The drasi-lib crate is published to crates.io with full API documentation available on docs.rs.</p>
 
 <div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/lib/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">GitHub README</h3>
+        <p class="unified-card-summary">Source repository documentation with getting started guide and examples</p>
+      </div>
+    </div>
+  </a>
   <a href="https://crates.io/crates/drasi-lib" target="_blank" rel="noopener">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-box"></i></div>

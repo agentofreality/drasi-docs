@@ -25,16 +25,80 @@ related:
       url: "https://docs.rs/drasi-lib"
 ---
 
-drasi-lib is a Rust crate that brings Drasi's change detection capabilities directly into your Rust applications. Add drasi-lib to your `Cargo.toml` to get started:
+drasi-lib is a Rust crate that that lets you embed Drasi's continuous query engine (drasi-core) directly into your Rust application. This means change detection runs in-process—no external services, no network hops, no infrastructure to manage.
+
+Your application can ingest changes from external sources (like PostgreSQL or gRPC streams), from internal application state via App Sources, or both. Continuous queries process these changes and produce results that flow to Reactions—which can call external systems, update internal state via App Reactions, or both. The API layer gives your application direct access to query results and runtime control.
+
+![drasi-lib architecture showing Sources, Queries, and Reactions running inside a Rust application](drasi-lib-architecture.png)
+
+## When to Use drasi-lib
+
+drasi-lib is ideal when you need **precise change detection** without deploying separate infrastructure:
+
+- **Event-driven microservices** — React to database changes without polling; get before/after states for every change
+- **Real-time monitoring** — Trigger alerts when aggregations cross thresholds or conditions persist
+- **In-app reactive logic** — Use application sources and reactions to drive and respond to state changes within your application, replacing complex event wiring with declarative queries
+- **Edge and embedded systems** — Run change detection locally with minimal footprint
+- **Custom data pipelines** — Embed reactive queries in ETL processes or stream processors
+
+## Minimal Example
+
+Add drasi-lib to your `Cargo.toml`, along with the source and reaction crates you need:
 
 ```toml
 [dependencies]
-drasi-lib = "0.1"
+drasi-lib = "0.3"
+drasi-source-mock = "0.1"
+drasi-reaction-log = "0.1"
+tokio = { version = "1", features = ["full"] }
 ```
+
+This example monitors a mock sensor source and reacts when temperature exceeds 75°C:
+
+```rust
+use drasi_lib::{DrasiLib, Query};
+use drasi_source_mock::{MockSource, MockSourceConfig};
+use drasi_reaction_log::{LogReaction, LogReactionConfig};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Create a mock sensor source
+    let source = MockSource::new("sensors", MockSourceConfig {
+        data_type: "sensor".to_string(),
+        interval_ms: 1000,
+    })?;
+
+    // Create a log reaction for alerts
+    let reaction = LogReaction::new(
+        "alerts",
+        vec!["high-temp".to_string()],
+        LogReactionConfig::default(),
+    )?;
+
+    // Build and run
+    let core = DrasiLib::builder()
+        .with_source(source)
+        .with_reaction(reaction)
+        .with_query(
+            Query::gql("high-temp")
+                .query("MATCH (s:Sensor) WHERE s.temperature > 75 RETURN s")
+                .from_source("sensors")
+                .build()
+        )
+        .build()
+        .await?;
+
+    core.start().await?;
+    tokio::signal::ctrl_c().await?;
+    core.stop().await
+}
+```
+
+When a sensor's temperature crosses 75°C, you'll receive a change event with the sensor data. When it drops back below, you'll receive a deletion event—enabling precise "enter/exit" logic without manual state tracking.
 
 ## Documentation Resources
 
-For complete documentation, examples, and API reference, visit the official Rust documentation sites:
+For complete documentation, builder API reference, and advanced configuration:
 
 <div class="card-grid card-grid--2">
   <a href="https://github.com/drasi-project/drasi-core/blob/main/lib/README.md" target="_blank" rel="noopener">
@@ -42,7 +106,7 @@ For complete documentation, examples, and API reference, visit the official Rust
       <div class="unified-card-icon"><i class="fab fa-github"></i></div>
       <div class="unified-card-content">
         <h3 class="unified-card-title">GitHub README</h3>
-        <p class="unified-card-summary">Source repository documentation with getting started guide and examples</p>
+        <p class="unified-card-summary">Complete builder API, configuration options, and plugin development guides</p>
       </div>
     </div>
   </a>
@@ -51,7 +115,7 @@ For complete documentation, examples, and API reference, visit the official Rust
       <div class="unified-card-icon"><i class="fas fa-box"></i></div>
       <div class="unified-card-content">
         <h3 class="unified-card-title">crates.io</h3>
-        <p class="unified-card-summary">Package information, version history, dependencies, and installation instructions</p>
+        <p class="unified-card-summary">Package info, version history, and dependencies</p>
       </div>
     </div>
   </a>
@@ -60,7 +124,7 @@ For complete documentation, examples, and API reference, visit the official Rust
       <div class="unified-card-icon"><i class="fas fa-book"></i></div>
       <div class="unified-card-content">
         <h3 class="unified-card-title">docs.rs</h3>
-        <p class="unified-card-summary">Complete API documentation with examples, type definitions, and usage guides</p>
+        <p class="unified-card-summary">API documentation with type definitions and usage examples</p>
       </div>
     </div>
   </a>
