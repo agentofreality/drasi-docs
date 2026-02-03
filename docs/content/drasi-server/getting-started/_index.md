@@ -12,6 +12,8 @@ related:
       url: "/concepts/sources/"
     - title: "Continuous Queries"
       url: "/concepts/continuous-queries/"
+    - title: "Reactions"
+      url: "/concepts/reactions/"
   howto:
     - title: "Configure Sources"
       url: "/drasi-server/how-to-guides/configuration/configure-sources/"
