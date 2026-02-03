@@ -25,25 +25,11 @@ related:
       url: "https://docs.rs/drasi-lib"
 ---
 
-drasi-lib is a Rust crate that that lets you embed Drasi's continuous query engine (drasi-core) directly into your Rust application. This means change detection runs in-process—no external services, no network hops, no infrastructure to manage.
+The quickest way to get started using drasi-lib is to create a simple example. This minimal example monitors a mock sensor source and reacts when temperature exceeds 75°C:
 
-Your application can ingest changes from external sources (like PostgreSQL or gRPC streams), from internal application state via App Sources, or both. Continuous queries process these changes and produce results that flow to Reactions—which can call external systems, update internal state via App Reactions, or both. The API layer gives your application direct access to query results and runtime control.
+## Add drasi-lib dependencies
 
-![drasi-lib architecture showing Sources, Queries, and Reactions running inside a Rust application](drasi-lib-architecture.png)
-
-## When to Use drasi-lib
-
-drasi-lib is ideal when you need **precise change detection** without deploying separate infrastructure:
-
-- **Event-driven microservices** — React to database changes without polling; get before/after states for every change
-- **Real-time monitoring** — Trigger alerts when aggregations cross thresholds or conditions persist
-- **In-app reactive logic** — Use application sources and reactions to drive and respond to state changes within your application, replacing complex event wiring with declarative queries
-- **Edge and embedded systems** — Run change detection locally with minimal footprint
-- **Custom data pipelines** — Embed reactive queries in ETL processes or stream processors
-
-## Minimal Example
-
-Add drasi-lib to your `Cargo.toml`, along with the source and reaction crates you need:
+Add drasi-lib to your `Cargo.toml`, along with tokio and the source and reaction crates you need:
 
 ```toml
 [dependencies]
@@ -53,7 +39,8 @@ drasi-reaction-log = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
 
-This example monitors a mock sensor source and reacts when temperature exceeds 75°C:
+## Write your first drasi-lib application
+
 
 ```rust
 use drasi_lib::{DrasiLib, Query};

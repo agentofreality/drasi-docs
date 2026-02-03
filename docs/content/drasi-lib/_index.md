@@ -62,35 +62,21 @@ description: "Build Change-driven Rust solutions"
   </div>
 </div>
 
+Your application can ingest changes from external sources (like PostgreSQL or gRPC streams), from internal application state via App Sources, or both. Continuous queries process these changes and produce results that flow to Reactions—which can call external systems, update internal state via App Reactions, or both. The API layer gives your application direct access to query results and runtime control.
+
+![drasi-lib architecture showing Sources, Queries, and Reactions running inside a Rust application](drasi-lib-architecture.png)
+
 ## When to Use drasi-lib
 
-<p class="section-intro">Choose drasi-lib for embedded, lightweight, and self-contained change-driven solutions.</p>
+drasi-lib is ideal when you are developing a Rust application or service and need **efficient and precise change detection** without deploying separate infrastructure:
 
-<div class="card-grid card-grid--3">
-  <div class="unified-card unified-card--concepts unified-card--static">
-    <div class="unified-card-icon"><i class="fas fa-microchip"></i></div>
-    <div class="unified-card-content">
-      <h3 class="unified-card-title">Edge & Embedded</h3>
-      <p class="unified-card-summary">Run change-driven solutions on edge devices or embedded systems without network dependencies.</p>
-    </div>
-  </div>
-  <div class="unified-card unified-card--concepts unified-card--static">
-    <div class="unified-card-icon"><i class="fas fa-feather"></i></div>
-    <div class="unified-card-content">
-      <h3 class="unified-card-title">Lightweight</h3>
-      <p class="unified-card-summary">No external services required. Everything runs in your application's process.</p>
-    </div>
-  </div>
-  <div class="unified-card unified-card--concepts unified-card--static">
-    <div class="unified-card-icon"><i class="fas fa-sliders-h"></i></div>
-    <div class="unified-card-content">
-      <h3 class="unified-card-title">Fine-Grained Control</h3>
-      <p class="unified-card-summary">Full programmatic control over Sources, Continuous Queries, and Reactions.</p>
-    </div>
-  </div>
-</div>
+- **Event-driven microservices** — React to database changes without polling; get before/after states for every change
+- **Real-time monitoring** — Trigger alerts when aggregations cross thresholds or conditions persist
+- **In-app reactive logic** — Use application sources and reactions to drive and respond to state changes within your application, replacing complex event wiring with declarative queries
+- **Edge and embedded systems** — Run change detection locally with minimal footprint
+- **Custom data pipelines** — Embed reactive queries in ETL processes or stream processors
 
-## Documentation
+## Documentation Resources
 
 <p class="section-intro">The drasi-lib crate is published to crates.io with full API documentation available on docs.rs.</p>
 
