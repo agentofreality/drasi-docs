@@ -18,11 +18,10 @@ related:
   reference:
     - title: "Query Language Reference"
       url: "/reference/query-language/"
-  external:
-    - title: "crates.io"
-      url: "https://crates.io/crates/drasi-lib"
-    - title: "docs.rs"
-      url: "https://docs.rs/drasi-lib"
+    - title: "Available Sources"
+      url: "/drasi-lib/sources/"
+    - title: "Available Reactions"
+      url: "/drasi-lib/reactions/"
 ---
 
 The quickest way to get started using drasi-lib is to create a simple example. This minimal example monitors a mock sensor source and reacts when temperature exceeds 75°C:
