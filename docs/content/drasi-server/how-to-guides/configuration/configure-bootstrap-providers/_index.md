@@ -5,18 +5,6 @@ linkTitle: "Configure Bootstrap Providers"
 weight: 30
 no_list: true
 description: "Load initial data before streaming begins"
-related:
-  concepts:
-    - title: "Sources"
-      url: "/concepts/sources/"
-  howto:
-    - title: "Configure Sources"
-      url: "/drasi-server/how-to-guides/configuration/configure-sources/"
-    - title: "Configure PostgreSQL Source"
-      url: "/drasi-server/how-to-guides/configuration/configure-sources/configure-postgresql-source/"
-  reference:
-    - title: "Configuration Reference"
-      url: "/drasi-server/reference/configuration/"
 ---
 
 # Configure Bootstrap Providers

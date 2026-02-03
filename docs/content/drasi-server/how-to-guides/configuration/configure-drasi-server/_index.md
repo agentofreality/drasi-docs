@@ -4,26 +4,6 @@ title: "Configure Drasi Server"
 linkTitle: "Configure Drasi Server"
 weight: 10
 description: "Understanding the Drasi Server YAML configuration file structure"
-related:
-  concepts:
-    - title: "Drasi Overview"
-      url: "/concepts/overview/"
-    - title: "Sources"
-      url: "/concepts/sources/"
-    - title: "Continuous Queries"
-      url: "/concepts/continuous-queries/"
-    - title: "Reactions"
-      url: "/concepts/reactions/"
-  howto:
-    - title: "Configure Sources"
-      url: "/drasi-server/how-to-guides/configuration/configure-sources/"
-    - title: "Configure Reactions"
-      url: "/drasi-server/how-to-guides/configuration/configure-reactions/"
-  reference:
-    - title: "Configuration Reference"
-      url: "/drasi-server/reference/configuration/"
-    - title: "CLI Reference"
-      url: "/drasi-server/reference/cli/"
 ---
 
 {{< term "Drasi Server" >}} uses YAML configuration files to define {{< term "Source" "sources" >}}, {{< term "Continuous Query" "queries" >}}, {{< term "Reaction" "reactions" >}}, and server settings. This guide explains the configuration structure and options.

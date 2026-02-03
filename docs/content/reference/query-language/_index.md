@@ -8,20 +8,6 @@ no_list: true
 notoc: true
 description: >
     Writing Continuous Queries
-related:
-  tutorials:
-    - title: "Getting Started (drasi-lib)"
-      url: "/drasi-lib/getting-started/"
-    - title: "Getting Started (Server)"
-      url: "/drasi-server/getting-started/"
-    - title: "Getting Started (Kubernetes)"
-      url: "/drasi-kubernetes/getting-started/"
-  concepts:
-    - title: "Continuous Queries"
-      url: "/concepts/continuous-queries/"
-  howto:
-    - title: "Write Continuous Queries"
-      url: "/drasi-kubernetes/how-to-guides/write-continuous-queries/"
 ---
 
 {{< term "Continuous Query" "Continuous Queries" >}} are written using a subset of the {{< term "openCypher" "Cypher Query Language" >}} or {{< term "GQL" "Graph Query Language" >}} (GQL). These query languages allow you to describe patterns in graph data and specify transformations to detect changes of interest.

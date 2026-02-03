@@ -7,24 +7,6 @@ no_list: true
 notoc: true
 hide_readingtime: true
 description: "Step-by-step instructions for working with Drasi Server"
-related:
-  concepts:
-    - title: "Drasi Overview"
-      url: "/concepts/overview/"
-    - title: "Sources"
-      url: "/concepts/sources/"
-    - title: "Reactions"
-      url: "/concepts/reactions/"
-  tutorials:
-    - title: "Getting Started"
-      url: "/drasi-server/getting-started/"
-    - title: "SLA Breach Alerting"
-      url: "/drasi-server/tutorials/sla-breach-alerting/"
-  reference:
-    - title: "Configuration Reference"
-      url: "/drasi-server/reference/configuration/"
-    - title: "REST API Reference"
-      url: "/drasi-server/reference/rest-api/"
 ---
 
 <div class="card-grid">

@@ -7,22 +7,6 @@ hide_readingtime: true
 no_list: true
 notoc: true
 description: "Learn Drasi Server by solving real business problems. Each tutorial demonstrates how Drasi elegantly handles challenges that are difficult with traditional approaches."
-related:
-  concepts:
-    - title: "Drasi Overview"
-      url: "/concepts/overview/"
-    - title: "Sources"
-      url: "/concepts/sources/"
-    - title: "Continuous Queries"
-      url: "/concepts/continuous-queries/"
-  howto:
-    - title: "Configure Sources"
-      url: "/drasi-server/how-to-guides/configuration/configure-sources/"
-    - title: "Configure Reactions"
-      url: "/drasi-server/how-to-guides/configuration/configure-reactions/"
-  reference:
-    - title: "Configuration Reference"
-      url: "/drasi-server/reference/configuration/"
 ---
 
 These tutorials use a shared e-commerce domain, progressively building your understanding of Drasi's capabilities. Start with Tutorial 1 and work through them in order.
