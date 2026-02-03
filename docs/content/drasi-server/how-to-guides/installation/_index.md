@@ -6,7 +6,7 @@ weight: 10
 no_list: true
 notoc: true
 hide_readingtime: true
-description: "Deploy Drasi Server with Docker, Docker Compose, or build from source"
+description: "Deploy Drasi Server with Docker, or build from source"
 ---
 
 <div class="card-grid">
@@ -25,15 +25,6 @@ description: "Deploy Drasi Server with Docker, Docker Compose, or build from sou
       <div class="unified-card-content">
         <h3 class="unified-card-title">Docker</h3>
         <p class="unified-card-summary">Run Drasi Server as a container. Best for containerized environments.</p>
-      </div>
-    </div>
-  </a>
-  <a href="install-with-docker-compose/">
-    <div class="unified-card unified-card--howto">
-      <div class="unified-card-icon"><i class="fab fa-docker"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Docker Compose</h3>
-        <p class="unified-card-summary">Deploy with related services like PostgreSQL. Best for development environments.</p>
       </div>
     </div>
   </a>

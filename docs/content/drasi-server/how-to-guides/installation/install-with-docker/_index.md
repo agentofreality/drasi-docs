@@ -9,8 +9,6 @@ related:
     - title: "Getting Started"
       url: "/drasi-server/getting-started/"
   howto:
-    - title: "Docker Compose Installation"
-      url: "/drasi-server/how-to-guides/installation/install-with-docker-compose/"
     - title: "Configure Sources"
       url: "/drasi-server/how-to-guides/configuration/configure-sources/"
   reference:
