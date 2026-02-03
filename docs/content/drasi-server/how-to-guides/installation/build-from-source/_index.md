@@ -25,35 +25,20 @@ Building {{< term "Drasi Server" >}} from source gives you full control over the
 
 ### Install Rust
 
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
-```
+Install Rust using [rustup](https://www.rust-lang.org/tools/install), the official Rust toolchain installer. Follow the instructions for your platform on the rustup website.
 
-Verify installation:
+After installation, verify Rust is available:
 
 ```bash
 rustc --version
 cargo --version
 ```
 
-## Clone the Repository
-
-Clone with all submodules:
+## Clone the Drasi Server Repository
 
 ```bash
-git clone --recurse-submodules https://github.com/drasi-project/drasi-server.git
+git clone https://github.com/drasi-project/drasi-server.git
 cd drasi-server
-```
-
-{{< alert title="Important" color="warning" >}}
-The `--recurse-submodules` flag is required. Drasi Server depends on the {{< term "drasi-lib" >}} library which is included as a Git submodule.
-{{< /alert >}}
-
-If you already cloned without submodules, initialize them:
-
-```bash
-git submodule update --init --recursive
 ```
 
 ## Build Options
@@ -78,30 +63,15 @@ cargo build --release
 
 The binary will be at `target/release/drasi-server`.
 
-## Run the Server
-
-### Using Cargo
-
-```bash
-# Debug mode
-cargo run -- --config config/server.yaml
-
-# Release mode
-cargo run --release -- --config config/server.yaml
-```
-
-### Using the Binary Directly
-
-```bash
-# After building
-./target/release/drasi-server --config config/server.yaml
-```
-
 ## Configuration
 
-### Create Configuration Interactively
+### Create Configuration File
 
-Use the `init` command to create a configuration file:
+Drasi Server requires a configuration file that defines your sources, queries, and reactions. 
+
+Create a configuration yaml file for Drasi Server. See the [Configuration Reference](/drasi-server/reference/configuration/) for details on all available configuration options.
+
+Alternatively, use the `init` command to create a starter configuration file:
 
 ```bash
 cargo run --release -- init --output config/server.yaml
@@ -109,7 +79,7 @@ cargo run --release -- init --output config/server.yaml
 
 ### Validate Configuration
 
-Check your configuration without starting the server:
+Check your configuration file without starting the server:
 
 ```bash
 cargo run --release -- validate --config config/server.yaml
@@ -127,185 +97,21 @@ cargo run --release -- doctor
 cargo run --release -- doctor --all
 ```
 
-## Development Workflow
+## Run Drasi Server
 
-### Run Tests
-
-```bash
-# Run all tests
-cargo test
-
-# Run tests with output
-cargo test -- --nocapture
-
-# Run specific test
-cargo test test_name
-```
-
-### Format Code
+### Using Cargo
 
 ```bash
-cargo fmt
+# Debug mode
+cargo run -- --config config/server.yaml
+
+# Release mode
+cargo run --release -- --config config/server.yaml
 ```
 
-### Lint Code
+### Using the Binary Directly
 
 ```bash
-cargo clippy
+# After building
+./target/release/drasi-server --config config/server.yaml
 ```
-
-### Watch for Changes
-
-Install cargo-watch for automatic rebuilds:
-
-```bash
-cargo install cargo-watch
-
-# Rebuild on changes
-cargo watch -x build
-
-# Run tests on changes
-cargo watch -x test
-```
-
-## Cross-Compilation
-
-### For Linux (from macOS/Windows)
-
-```bash
-# Add target
-rustup target add x86_64-unknown-linux-gnu
-
-# Build
-cargo build --release --target x86_64-unknown-linux-gnu
-```
-
-### For macOS (from Linux)
-
-```bash
-rustup target add x86_64-apple-darwin
-cargo build --release --target x86_64-apple-darwin
-```
-
-### For Windows (from Linux/macOS)
-
-```bash
-rustup target add x86_64-pc-windows-gnu
-cargo build --release --target x86_64-pc-windows-gnu
-```
-
-## Build Troubleshooting
-
-### Submodule Errors
-
-If you see errors about missing files in the `lib` directory:
-
-```bash
-git submodule update --init --recursive
-```
-
-### OpenSSL Errors
-
-On Linux, install OpenSSL development packages:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get install libssl-dev pkg-config
-
-# Fedora/RHEL
-sudo dnf install openssl-devel
-
-# Alpine
-apk add openssl-dev
-```
-
-### Compilation Errors
-
-Ensure you have the latest Rust toolchain:
-
-```bash
-rustup update
-```
-
-### Out of Memory During Build
-
-Limit parallel compilation:
-
-```bash
-CARGO_BUILD_JOBS=2 cargo build --release
-```
-
-### Slow Builds
-
-Use the mold linker for faster linking (Linux):
-
-```bash
-# Install mold
-sudo apt-get install mold
-
-# Configure Cargo to use mold
-# Add to ~/.cargo/config.toml:
-[target.x86_64-unknown-linux-gnu]
-linker = "clang"
-rustflags = ["-C", "link-arg=-fuse-ld=mold"]
-```
-
-## Project Structure
-
-```
-drasi-server/
-├── src/
-│   ├── main.rs           # Entry point and CLI
-│   ├── api/              # REST API implementation
-│   │   ├── models/       # API data models
-│   │   └── v1/           # API v1 routes and handlers
-│   ├── config/           # Configuration loading
-│   └── factories.rs      # Component factories
-├── lib/                  # DrasiLib submodule
-├── config/               # Example configurations
-├── Cargo.toml            # Dependencies
-└── README.md
-```
-
-## Creating a Release
-
-### Build Release Binary
-
-```bash
-cargo build --release
-```
-
-### Strip Debug Symbols (Linux/macOS)
-
-Reduce binary size:
-
-```bash
-strip target/release/drasi-server
-```
-
-### Package for Distribution
-
-```bash
-# Create tarball
-tar -czvf drasi-server-linux-x64.tar.gz -C target/release drasi-server
-
-# Or zip
-zip drasi-server-linux-x64.zip target/release/drasi-server
-```
-
-## Contributing
-
-When contributing to Drasi Server:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `cargo test`
-5. Format code: `cargo fmt`
-6. Check lints: `cargo clippy`
-7. Submit a pull request
-
-## Next Steps
-
-- [Configuration File Guide](/drasi-server/how-to-guides/installation/configuration-file/) - Learn configuration options
-- [Configure Sources](/drasi-server/how-to-guides/configure-sources/) - Connect to data sources
