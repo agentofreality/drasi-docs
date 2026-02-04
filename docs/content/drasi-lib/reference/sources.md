@@ -24,12 +24,12 @@ Sources ingest data from external systems or your application and emit graph ele
 ## Available Sources
 
 <div class="card-grid card-grid--2">
-  <a href="https://crates.io/crates/drasi-source-postgres" target="_blank" rel="noopener">
+  <a href="https://crates.io/crates/drasi-source-application" target="_blank" rel="noopener">
     <div class="unified-card unified-card--reference">
-      <div class="unified-card-icon"><i class="fas fa-database"></i></div>
+      <div class="unified-card-icon"><i class="fas fa-code"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">PostgreSQL</h3>
-        <p class="unified-card-summary">Stream changes from PostgreSQL using logical replication</p>
+        <h3 class="unified-card-title">Application</h3>
+        <p class="unified-card-summary">Push changes directly from your application code</p>
       </div>
     </div>
   </a>
@@ -51,15 +51,6 @@ Sources ingest data from external systems or your application and emit graph ele
       </div>
     </div>
   </a>
-  <a href="https://crates.io/crates/drasi-source-application" target="_blank" rel="noopener">
-    <div class="unified-card unified-card--reference">
-      <div class="unified-card-icon"><i class="fas fa-code"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Application</h3>
-        <p class="unified-card-summary">Push changes directly from your application code</p>
-      </div>
-    </div>
-  </a>
   <a href="https://crates.io/crates/drasi-source-mock" target="_blank" rel="noopener">
     <div class="unified-card unified-card--reference">
       <div class="unified-card-icon"><i class="fas fa-flask"></i></div>
@@ -69,12 +60,21 @@ Sources ingest data from external systems or your application and emit graph ele
       </div>
     </div>
   </a>
-  <a href="https://crates.io/crates/drasi-source-platform" target="_blank" rel="noopener">
+  <!-- <a href="https://crates.io/crates/drasi-source-platform" target="_blank" rel="noopener">
     <div class="unified-card unified-card--reference">
       <div class="unified-card-icon"><i class="fas fa-server"></i></div>
       <div class="unified-card-content">
         <h3 class="unified-card-title">Platform</h3>
         <p class="unified-card-summary">Consume from Redis Streams for Drasi Platform integration</p>
+      </div>
+    </div>
+  </a> -->
+  <a href="https://crates.io/crates/drasi-source-postgres" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--reference">
+      <div class="unified-card-icon"><i class="fas fa-database"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">PostgreSQL</h3>
+        <p class="unified-card-summary">Stream changes from PostgreSQL using logical replication</p>
       </div>
     </div>
   </a>
