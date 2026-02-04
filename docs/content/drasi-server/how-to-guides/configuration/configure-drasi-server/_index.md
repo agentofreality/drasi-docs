@@ -18,7 +18,11 @@ drasi-server --config /path/to/my-config.yaml
 
 ## Basic Structure
 
-A complete configuration file has this structure:
+A complete configuration file has this structure.
+
+{{< alert color="warning" >}}
+Drasi Server config keys are **camelCase** and unknown fields are rejected. For example, use `logLevel` (not `log_level`) and `autoStart` (not `auto_start`).
+{{< /alert >}}
 
 ```yaml
 # Server identification
@@ -27,39 +31,43 @@ id: my-server-instance
 # Server settings
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 # Persistence settings
-persist_config: true
-persist_index: false
+persistConfig: true
+persistIndex: false
 
-# State store for plugin data
-state_store:
+# State store for plugin data (optional)
+stateStore:
   kind: redb
   path: ./data/state.redb
 
-# Performance tuning
-default_priority_queue_capacity: 10000
-default_dispatch_buffer_capacity: 1000
+# Performance tuning (optional)
+defaultPriorityQueueCapacity: 10000
+defaultDispatchBufferCapacity: 1000
 
 # Data sources
 sources:
   - kind: postgres
     id: my-source
-    # ... source configuration
+    # ... source-specific configuration
 
 # Continuous queries
 queries:
   - id: my-query
     query: "MATCH (n) RETURN n"
+    queryLanguage: GQL
+    autoStart: false
+    enableBootstrap: true
     sources:
-      - source_id: my-source
+      - sourceId: my-source
 
 # Reactions to query changes
 reactions:
   - kind: log
     id: my-reaction
     queries: [my-query]
+    autoStart: true
 
 # Multi-instance configuration (optional)
 instances: []
@@ -67,14 +75,23 @@ instances: []
 
 ## Server Settings
 
+Top-level settings in `server.yaml`:
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `id` | string | Auto-generated UUID | Unique server identifier |
 | `host` | string | `0.0.0.0` | Server bind address |
 | `port` | integer | `8080` | REST API port |
-| `log_level` | string | `info` | Log level: `trace`, `debug`, `info`, `warn`, `error` |
-| `persist_config` | boolean | `true` | Save API changes to config file |
-| `persist_index` | boolean | `false` | Use RocksDB for persistent query indexes |
+| `logLevel` | string | `info` | Log level: `trace`, `debug`, `info`, `warn`, `error` |
+| `persistConfig` | boolean | `true` | Persist API changes back to the config file (if writable) |
+| `persistIndex` | boolean | `false` | Enable persistent indexes using RocksDB (stored under `./data/<instanceId>/index`) |
+| `stateStore` | object | None | Persist plugin state across restarts (see below) |
+| `defaultPriorityQueueCapacity` | integer | `10000` | Default event queue capacity for queries/reactions (optional override) |
+| `defaultDispatchBufferCapacity` | integer | `1000` | Default dispatch buffer capacity for sources/queries (optional override) |
+| `sources` | array | `[]` | Source plugin instances |
+| `queries` | array | `[]` | Continuous queries |
+| `reactions` | array | `[]` | Reactions to query changes |
+| `instances` | array | `[]` | Optional multi-instance mode (see below) |
 
 ### Example
 
@@ -82,9 +99,9 @@ instances: []
 id: production-server
 host: 0.0.0.0
 port: 8080
-log_level: info
-persist_config: true
-persist_index: true
+logLevel: info
+persistConfig: true
+persistIndex: true
 ```
 
 ## State Store Configuration
@@ -96,7 +113,7 @@ The state store persists plugin state across server restarts.
 File-based persistent storage:
 
 ```yaml
-state_store:
+stateStore:
   kind: redb
   path: ./data/state.redb
 ```
@@ -108,18 +125,18 @@ state_store:
 
 ### In-Memory (Default)
 
-If `state_store` is not configured, an in-memory store is used. State is lost on restart.
+If `stateStore` is not configured, an in-memory store is used and state is lost on restart.
 
 ## Performance Tuning
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `default_priority_queue_capacity` | integer | `10000` | Event queue capacity for queries/reactions |
-| `default_dispatch_buffer_capacity` | integer | `1000` | Buffer capacity for event dispatching |
+| `defaultPriorityQueueCapacity` | integer | `10000` | Default event priority queue capacity for queries/reactions |
+| `defaultDispatchBufferCapacity` | integer | `1000` | Default dispatch buffer capacity for sources/queries |
 
 ```yaml
-default_priority_queue_capacity: 50000
-default_dispatch_buffer_capacity: 5000
+defaultPriorityQueueCapacity: 50000
+defaultDispatchBufferCapacity: 5000
 ```
 
 These can be overridden per-query:
@@ -129,14 +146,14 @@ queries:
   - id: high-volume-query
     query: "MATCH (n) RETURN n"
     sources:
-      - source_id: my-source
-    priority_queue_capacity: 100000
-    dispatch_buffer_capacity: 10000
+      - sourceId: my-source
+    priorityQueueCapacity: 100000
+    dispatchBufferCapacity: 10000
 ```
 
 ## Environment Variable Interpolation
 
-All configuration values support environment variable substitution.
+Many scalar configuration values support environment variable substitution.
 
 ### Syntax
 
@@ -161,10 +178,10 @@ sources:
 
 ### Using .env Files
 
-Drasi Server automatically loads `.env` files in the current directory:
+Drasi Server loads a `.env` file **from the same directory as your config file** (if present). This is primarily for local development.
 
 ```bash
-# .env file
+# config/.env
 DB_HOST=postgres.example.com
 DB_PASSWORD=secretpassword
 ```
@@ -200,12 +217,12 @@ For advanced use cases, configure multiple isolated DrasiLib instances:
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 instances:
   - id: analytics
-    persist_index: true
-    state_store:
+    persistIndex: true
+    stateStore:
       kind: redb
       path: ./data/analytics-state.redb
     sources:
@@ -217,14 +234,14 @@ instances:
       - id: analytics-query
         query: "MATCH (n:Order) WHERE n.total > 1000 RETURN n"
         sources:
-          - source_id: analytics-db
+          - sourceId: analytics-db
     reactions:
       - kind: log
         id: analytics-log
         queries: [analytics-query]
 
   - id: monitoring
-    persist_index: false
+    persistIndex: false
     sources:
       - kind: http
         id: metrics-api
@@ -234,7 +251,7 @@ instances:
       - id: alert-threshold
         query: "MATCH (m:Metric) WHERE m.value > m.threshold RETURN m"
         sources:
-          - source_id: metrics-api
+          - sourceId: metrics-api
     reactions:
       - kind: sse
         id: alert-stream
@@ -254,66 +271,73 @@ Each instance has:
 id: drasi-production
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 # Enable persistence
-persist_config: true
-persist_index: true
+persistConfig: true
+persistIndex: true
 
 # State store
-state_store:
+stateStore:
   kind: redb
   path: ${DATA_PATH:-./data}/state.redb
 
 # Performance settings
-default_priority_queue_capacity: 10000
-default_dispatch_buffer_capacity: 1000
+# (optional; defaults are 10000 and 1000)
+defaultPriorityQueueCapacity: ${PRIORITY_QUEUE_CAPACITY:-10000}
+defaultDispatchBufferCapacity: ${DISPATCH_BUFFER_CAPACITY:-1000}
 
 # Sources
 sources:
   - kind: postgres
     id: orders-db
-    auto_start: true
+    autoStart: true
     host: ${DB_HOST}
     port: ${DB_PORT:-5432}
     database: ${DB_NAME}
     user: ${DB_USER}
     password: ${DB_PASSWORD}
-    ssl: true
+    sslMode: prefer
     tables:
       - public.orders
       - public.customers
-    slot_name: drasi_slot
-    publication_name: drasi_pub
-    bootstrap_provider:
-      type: postgres
+    slotName: drasi_slot
+    publicationName: drasi_publication
+    tableKeys:
+      - table: public.orders
+        keyColumns: [id]
+    bootstrapProvider:
+      kind: postgres
 
   - kind: http
     id: webhook-receiver
-    auto_start: true
+    autoStart: true
     host: 0.0.0.0
     port: 9000
-    timeout_ms: 10000
+    timeoutMs: 10000
 
 # Queries
 queries:
   - id: high-value-orders
+    autoStart: true
+    queryLanguage: GQL
     query: |
       MATCH (o:orders)
       WHERE o.total > 1000
       RETURN o.id, o.customer_id, o.total, o.status
     sources:
-      - source_id: orders-db
-    auto_start: true
+      - sourceId: orders-db
     enableBootstrap: true
 
   - id: pending-orders
+    autoStart: true
+    queryLanguage: GQL
     query: |
       MATCH (o:orders)-[:CUSTOMER]->(c:customers)
       WHERE o.status = 'pending'
       RETURN o.id, c.name, c.email, o.total
     sources:
-      - source_id: orders-db
+      - sourceId: orders-db
     joins:
       - id: CUSTOMER
         keys:
@@ -327,8 +351,8 @@ reactions:
   - kind: log
     id: console-output
     queries: [high-value-orders, pending-orders]
-    auto_start: true
-    default_template:
+    autoStart: true
+    defaultTemplate:
       added:
         template: "[NEW] Order {{after.id}}: ${{after.total}}"
       updated:
@@ -339,10 +363,10 @@ reactions:
   - kind: http
     id: webhook-notification
     queries: [high-value-orders]
-    auto_start: true
-    base_url: ${WEBHOOK_URL}
+    autoStart: true
+    baseUrl: ${WEBHOOK_URL}
     token: ${WEBHOOK_TOKEN}
-    timeout_ms: 5000
+    timeoutMs: 5000
     routes:
       high-value-orders:
         added:
@@ -360,16 +384,16 @@ reactions:
   - kind: sse
     id: live-updates
     queries: [pending-orders]
-    auto_start: true
+    autoStart: true
     host: 0.0.0.0
     port: 8081
-    sse_path: /events
-    heartbeat_interval_ms: 30000
+    ssePath: /events
+    heartbeatIntervalMs: 30000
 ```
 
 ## Configuration File Formats
 
-Drasi Server supports both YAML and JSON configuration files. The format is auto-detected based on content.
+Drasi Server supports both YAML and JSON configuration files. It tries to parse the file as YAML first and falls back to JSON if YAML parsing fails.
 
 ### YAML (Recommended)
 
@@ -398,6 +422,6 @@ sources:
 
 ## Next Steps
 
-- [Configure Sources](/drasi-server/how-to-guides/configure-sources/) - Connect to data sources
-- [Configure Reactions](/drasi-server/how-to-guides/configure-reactions/) - Define what happens on changes
+- [Configure Sources](/drasi-server/how-to-guides/configuration/configure-sources/) - Connect to data sources
+- [Configure Reactions](/drasi-server/how-to-guides/configuration/configure-reactions/) - Define what happens on changes
 - [Configuration Reference](/drasi-server/reference/configuration/) - Complete configuration schema
