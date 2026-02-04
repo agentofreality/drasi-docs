@@ -6,8 +6,12 @@ weight: 40
 hide_readingtime: true
 no_list: true
 notoc: true
-description: "drasi-lib API reference, available sources, and reactions"
+description: "Reference material for drasi-lib"
 ---
+
+## Available Plugins
+
+Available Source and Reaction plugins for drasi-lib:
 
 <div class="card-grid">
   <a href="sources/">
@@ -28,18 +32,43 @@ description: "drasi-lib API reference, available sources, and reactions"
       </div>
     </div>
   </a>
+</div>
+
+## Developer Resources
+
+Documentation resources for drasi-lib:
+
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/lib/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--reference">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">GitHub README</h3>
+        <p class="unified-card-summary">Complete builder API, configuration options, and plugin development guides</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-lib" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--reference">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">crates.io</h3>
+        <p class="unified-card-summary">Package info, version history, and dependencies</p>
+      </div>
+    </div>
+  </a>
   <a href="https://docs.rs/drasi-lib" target="_blank" rel="noopener">
     <div class="unified-card unified-card--reference">
       <div class="unified-card-icon"><i class="fas fa-book"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">API Documentation</h3>
-        <p class="unified-card-summary">Complete Rust API documentation on docs.rs</p>
+        <h3 class="unified-card-title">docs.rs</h3>
+        <p class="unified-card-summary">API documentation with type definitions and usage examples</p>
       </div>
     </div>
   </a>
 </div>
 
-## Shared Reference
+## Common Drasi References
 
 These reference materials apply to all Drasi products:
 
