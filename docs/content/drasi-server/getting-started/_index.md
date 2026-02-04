@@ -98,14 +98,14 @@ Continuous Queries define what data changes you want to monitor. Add a Continuou
 queries:
   - id: all-sensors
     query: |
-      MATCH (s:Sensor)
-      RETURN s.id, s.temperature, s.humidity, s.timestamp
+      MATCH (s:SensorReading)
+      RETURN s.sensor_id, s.temperature, s.humidity, s.timestamp
     sources:
       - sourceId: demo-source
     autoStart: true
 ```
 
-This Continuous Query uses {{< term "openCypher" >}} to match all `Sensor` {{< term "Node" "nodes" >}} and return their properties.
+This Continuous Query uses {{< term "openCypher" >}} to match all `SensorReading` {{< term "Node" "nodes" >}} and return their properties.
 
 ### Add a Reaction
 
@@ -139,8 +139,8 @@ sources:
 queries:
   - id: all-sensors
     query: |
-      MATCH (s:Sensor)
-      RETURN s.id, s.temperature, s.humidity, s.timestamp
+      MATCH (s:SensorReading)
+      RETURN s.sensor_id, s.temperature, s.humidity, s.timestamp
     sources:
       - sourceId: demo-source
     autoStart: true
