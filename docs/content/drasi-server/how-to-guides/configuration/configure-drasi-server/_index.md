@@ -4,9 +4,40 @@ title: "Configure Drasi Server"
 linkTitle: "Configure Drasi Server"
 weight: 10
 description: "Understanding the Drasi Server YAML configuration file structure"
+related:
+  tutorials:
+    - title: "Getting Started"
+      url: "/drasi-server/getting-started/"
+  concepts:
+    - title: "Sources"
+      url: "/concepts/sources/"
+    - title: "Continuous Queries"
+      url: "/concepts/continuous-queries/"
+    - title: "Reactions"
+      url: "/concepts/reactions/"
+  howto:
+    - title: "Configure Sources"
+      url: "/drasi-server/how-to-guides/configuration/configure-sources/"
+    - title: "Configure Reactions"
+      url: "/drasi-server/how-to-guides/configuration/configure-reactions/"
+    - title: "Configure Bootstrap Providers"
+      url: "/drasi-server/how-to-guides/configuration/configure-bootstrap-providers/"
+    - title: "Install with Docker"
+      url: "/drasi-server/how-to-guides/installation/install-with-docker/"
+  reference:
+    - title: "Configuration Reference"
+      url: "/drasi-server/reference/configuration/"
 ---
 
-{{< term "Drasi Server" >}} uses YAML configuration files to define {{< term "Source" "sources" >}}, {{< term "Continuous Query" "queries" >}}, {{< term "Reaction" "reactions" >}}, and server settings. This guide explains the configuration structure and options.
+{{< term "Drasi Server" >}} uses a single configuration file (YAML or JSON) to define server settings, {{< term "Source" "sources" >}}, {{< term "Continuous Query" "queries" >}}, and {{< term "Reaction" "reactions" >}}.
+
+If a Source requires initial state, you can attach a **Bootstrap Provider** to that Source in the same file. Bootstrap provider configuration is documented separately; this page focuses on the overall shape and server-level settings.
+
+## Important: strict camelCase keys
+
+Drasi Server configuration is **strictly validated**: keys must use **camelCase** (for example, `logLevel`, not `log_level`). Unknown fields are rejected to catch typos early.
+
+Use [`drasi-server validate`](#validating-configuration) to confirm a config file is accepted before starting the server.
 
 ## Configuration File Location
 
@@ -16,17 +47,43 @@ By default, Drasi Server looks for configuration at `config/server.yaml`. Overri
 drasi-server --config /path/to/my-config.yaml
 ```
 
+## Quick start (minimal)
+
+This is the smallest practical config to get Drasi Server running end-to-end (a Source, a query, and a Reaction). Use it as a starting point, then replace the `mock` Source with a real Source and add your own queries/reactions.
+
+```yaml
+host: 0.0.0.0
+port: 8080
+logLevel: info
+
+sources:
+  - kind: mock
+    id: demo
+    autoStart: true
+    dataType: generic
+    intervalMs: 1000
+
+queries:
+  - id: all
+    queryLanguage: GQL
+    query: "MATCH (n) RETURN n"
+    sources:
+      - sourceId: demo
+
+reactions:
+  - kind: log
+    id: console
+    autoStart: true
+    queries: [all]
+```
+
 ## Basic Structure
 
-A complete configuration file has this structure.
-
-{{< alert color="warning" >}}
-Drasi Server config keys are **camelCase** and unknown fields are rejected. For example, use `logLevel` (not `log_level`) and `autoStart` (not `auto_start`).
-{{< /alert >}}
+A complete configuration file has this structure (component-specific fields are omitted here):
 
 ```yaml
 # Server identification
-id: my-server-instance
+id: my-server
 
 # Server settings
 host: 0.0.0.0
@@ -37,36 +94,39 @@ logLevel: info
 persistConfig: true
 persistIndex: false
 
-# State store for plugin data (optional)
+# State store for plugin state (optional)
 stateStore:
   kind: redb
   path: ./data/state.redb
 
 # Performance tuning (optional)
+# (if omitted, DrasiLib defaults are used)
 defaultPriorityQueueCapacity: 10000
 defaultDispatchBufferCapacity: 1000
 
-# Data sources
+# Sources (see: Configure Sources)
 sources:
   - kind: postgres
-    id: my-source
+    id: db
+    autoStart: true
+    # optional per-source bootstrap
+    bootstrapProvider:
+      kind: postgres
     # ... source-specific configuration
 
-# Continuous queries
+# Queries
 queries:
-  - id: my-query
-    query: "MATCH (n) RETURN n"
+  - id: example
     queryLanguage: GQL
-    autoStart: false
-    enableBootstrap: true
+    query: "MATCH (n) RETURN n"
     sources:
-      - sourceId: my-source
+      - sourceId: db
 
-# Reactions to query changes
+# Reactions (see: Configure Reactions)
 reactions:
   - kind: log
-    id: my-reaction
-    queries: [my-query]
+    id: console
+    queries: [example]
     autoStart: true
 
 # Multi-instance configuration (optional)
@@ -79,18 +139,18 @@ Top-level settings in `server.yaml`:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `id` | string | Auto-generated UUID | Unique server identifier |
+| `id` | string | Auto-generated UUID | Unique server identifier (also used as the default instance id when `instances` is empty) |
 | `host` | string | `0.0.0.0` | Server bind address |
 | `port` | integer | `8080` | REST API port |
 | `logLevel` | string | `info` | Log level: `trace`, `debug`, `info`, `warn`, `error` |
 | `persistConfig` | boolean | `true` | Persist API changes back to the config file (if writable) |
 | `persistIndex` | boolean | `false` | Enable persistent indexes using RocksDB (stored under `./data/<instanceId>/index`) |
 | `stateStore` | object | None | Persist plugin state across restarts (see below) |
-| `defaultPriorityQueueCapacity` | integer | `10000` | Default event queue capacity for queries/reactions (optional override) |
-| `defaultDispatchBufferCapacity` | integer | `1000` | Default dispatch buffer capacity for sources/queries (optional override) |
-| `sources` | array | `[]` | Source plugin instances |
+| `defaultPriorityQueueCapacity` | integer | None | Default event queue capacity for queries/reactions (if set, overrides DrasiLib defaults) |
+| `defaultDispatchBufferCapacity` | integer | None | Default dispatch buffer capacity for sources/queries (if set, overrides DrasiLib defaults) |
+| `sources` | array | `[]` | Source plugin instances (see: Configure Sources) |
 | `queries` | array | `[]` | Continuous queries |
-| `reactions` | array | `[]` | Reactions to query changes |
+| `reactions` | array | `[]` | Reactions to query changes (see: Configure Reactions) |
 | `instances` | array | `[]` | Optional multi-instance mode (see below) |
 
 ### Example
@@ -107,6 +167,8 @@ persistIndex: true
 ## State Store Configuration
 
 The state store persists plugin state across server restarts.
+
+This is used by plugins (Sources, Bootstrap Providers, and Reactions) that need durable runtime state (for example, checkpoints / offsets / cursors), independent of whether you enable `persistIndex` (query indexing).
 
 ### REDB State Store
 
@@ -125,14 +187,16 @@ stateStore:
 
 ### In-Memory (Default)
 
-If `stateStore` is not configured, an in-memory store is used and state is lost on restart.
+If `stateStore` is not configured, an in-memory store is used and plugin state is lost on restart.
 
 ## Performance Tuning
 
+These settings control queue/buffer sizing in DrasiLib. They are most useful for high-throughput workloads or when you want to set consistent defaults across multiple queries/sources.
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `defaultPriorityQueueCapacity` | integer | `10000` | Default event priority queue capacity for queries/reactions |
-| `defaultDispatchBufferCapacity` | integer | `1000` | Default dispatch buffer capacity for sources/queries |
+| `defaultPriorityQueueCapacity` | integer | None | Default event priority queue capacity for queries/reactions (if set, overrides DrasiLib defaults) |
+| `defaultDispatchBufferCapacity` | integer | None | Default dispatch buffer capacity for sources/queries (if set, overrides DrasiLib defaults) |
 
 ```yaml
 defaultPriorityQueueCapacity: 50000
@@ -150,6 +214,30 @@ queries:
     priorityQueueCapacity: 100000
     dispatchBufferCapacity: 10000
 ```
+
+## Queries (overview)
+
+Query configuration lives under `queries:`.
+
+This page covers the **common fields** shared by all queries; see the query language docs for authoring queries, and the component pages for details about Sources, Bootstrap Providers, and Reactions.
+
+### Common query fields
+
+| Field | Type | Default | Notes |
+|------|------|---------|------|
+| `id` | string | (required) | Query identifier referenced by Reactions |
+| `autoStart` | boolean | `false` | Start the query automatically on server start |
+| `queryLanguage` | string | `GQL` | One of `GQL` or `Cypher` |
+| `query` | string | (required) | The query text |
+| `sources` | array | `[]` | Subscribed sources; entries include `sourceId` and optional filters |
+| `enableBootstrap` | boolean | `true` | Whether to request bootstrap data for this query |
+| `bootstrapBufferSize` | integer | `10000` | Buffer size used during bootstrap replay |
+| `joins` | array/object | None | Join configuration (advanced; structure depends on the join config used) |
+| `priorityQueueCapacity` | integer | None | Per-query override for the event priority queue capacity |
+| `dispatchBufferCapacity` | integer | None | Per-query override for the dispatch buffer capacity |
+| `dispatchMode` | string | None | Advanced; currently only `Channel` is accepted when set |
+| `storageBackend` | object | None | Advanced; storage backend configuration (structure depends on backend) |
+| `middleware` | array | `[]` | Reserved for future use (currently ignored) |
 
 ## Environment Variable Interpolation
 
@@ -206,13 +294,15 @@ Validate before starting the server:
 # Basic validation
 drasi-server validate --config config/server.yaml
 
-# Show resolved environment variables
+# Show resolved server settings (host/port/logLevel)
 drasi-server validate --config config/server.yaml --show-resolved
 ```
 
 ## Multi-Instance Configuration
 
-For advanced use cases, configure multiple isolated DrasiLib instances:
+For advanced use cases, configure multiple isolated DrasiLib instances.
+
+When `instances` is set (non-empty), Drasi Server uses the per-instance `sources`, `queries`, and `reactions` lists (the top-level lists are ignored).
 
 ```yaml
 host: 0.0.0.0
@@ -264,7 +354,11 @@ Each instance has:
 - Optional separate state store
 - API access via `/api/v1/instances/{instanceId}/...`
 
+For convenience, the **first** configured instance is also available via shortened routes under `/api/v1/` (for example, `/api/v1/sources`, `/api/v1/queries`, `/api/v1/reactions`).
+
 ## Complete Example
+
+This example shows a complete single-instance configuration using Sources, a query, and a few Reactions. For the full set of settings supported by each component, follow the links in [Next Steps](#next-steps).
 
 ```yaml
 # Server identification and settings
@@ -283,7 +377,7 @@ stateStore:
   path: ${DATA_PATH:-./data}/state.redb
 
 # Performance settings
-# (optional; defaults are 10000 and 1000)
+# (optional; if omitted, DrasiLib defaults are used)
 defaultPriorityQueueCapacity: ${PRIORITY_QUEUE_CAPACITY:-10000}
 defaultDispatchBufferCapacity: ${DISPATCH_BUFFER_CAPACITY:-1000}
 
@@ -419,9 +513,3 @@ sources:
   ]
 }
 ```
-
-## Next Steps
-
-- [Configure Sources](/drasi-server/how-to-guides/configuration/configure-sources/) - Connect to data sources
-- [Configure Reactions](/drasi-server/how-to-guides/configuration/configure-reactions/) - Define what happens on changes
-- [Configuration Reference](/drasi-server/reference/configuration/) - Complete configuration schema
