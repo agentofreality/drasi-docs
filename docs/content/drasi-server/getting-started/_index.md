@@ -28,6 +28,25 @@ related:
 
 This guide walks you through getting Drasi Server running and creating your first continuous query. By the end, you'll have a working Drasi Server instance monitoring data changes and reacting to them.
 
+## What You'll Learn
+
+- How to download and run Drasi Server
+- How to create a configuration file with Sources, Queries, and Reactions
+- How to verify everything is working
+- How to interact with Drasi Server via its REST API
+
+## Prerequisites
+
+Before starting, make sure you have:
+
+- **One of these**: A terminal with `curl` (for binary download) OR Docker installed
+- **Basic familiarity** with YAML configuration files
+- **Optional**: Understanding of [Drasi concepts](/concepts/overview/) (Sources, Continuous Queries, Reactions)
+
+{{< alert title="New to Drasi?" color="info" >}}
+If you're new to Drasi, that's fine! This guide uses a mock data source so you can see Drasi in action without connecting to a real database. You'll learn the concepts as you go.
+{{< /alert >}}
+
 ## Get Drasi Server
 
 Choose one of the following options to get Drasi Server:
@@ -272,12 +291,62 @@ docker stop drasi-server
 {{< /tab >}}
 {{< /tabpane >}}
 
+## Understanding How It Works
+
+Now that you've seen Drasi Server in action, here's what happened:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Mock Source   │────▶│  Continuous     │────▶│   Log Reaction  │
+│   (demo-source) │     │  Query          │     │  (console-out)  │
+│                 │     │  (all-sensors)  │     │                 │
+│ Generates fake  │     │ Matches all     │     │ Prints changes  │
+│ sensor data     │     │ SensorReading   │     │ to stdout       │
+│ every 2 seconds │     │ nodes           │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+1. **Source** — The mock source generates synthetic sensor data (temperature, humidity) on a timer. In real applications, you'd use a PostgreSQL, HTTP, or gRPC source to ingest real data.
+
+2. **Continuous Query** — The query runs continuously against the data graph. When data changes, the query re-evaluates and emits the differences (adds, updates, deletes).
+
+3. **Reaction** — The log reaction subscribes to query result changes and outputs them. You could instead use HTTP (webhooks), SSE (real-time dashboards), or gRPC (microservices).
+
+This is the core Drasi pattern: **Sources feed data → Queries detect changes → Reactions act on them**.
+
+## Troubleshooting
+
+### Server won't start
+
+**Error: "Address already in use"**
+- Another process is using port 8080
+- Solution: Stop the other process, or change the port in your config (`port: 9090`)
+
+**Error: "Configuration file not found"**
+- Drasi Server can't find `config.yaml`
+- Solution: Check the path in your `--config` argument, or run from the directory containing the file
+
+**Error: Unknown field or invalid key**
+- YAML keys must be camelCase (e.g., `logLevel`, not `log_level`)
+- Run `drasi-server validate --config config.yaml` to check your configuration
+
+### No output from the log reaction
+
+- Verify all components have `autoStart: true`
+- Check that the query's `sources` array references the correct `sourceId`
+- Look for errors in the server startup logs
+
+### Docker: Can't connect to localhost:8080
+
+- Ensure port mapping is correct: `-p 8080:8080`
+- On Linux, try using `--network host` or the container's IP address
+
 ## Next Steps
 
 Now that you have Drasi Server running, explore these topics:
 
 <div class="card-grid">
-  <a href="../how-to-guides/configure-sources/">
+  <a href="../how-to-guides/configuration/configure-sources/">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-database"></i></div>
       <div class="unified-card-content">
@@ -286,7 +355,7 @@ Now that you have Drasi Server running, explore these topics:
       </div>
     </div>
   </a>
-  <a href="../how-to-guides/configure-reactions/">
+  <a href="../how-to-guides/configuration/configure-reactions/">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-bolt"></i></div>
       <div class="unified-card-content">
@@ -295,12 +364,12 @@ Now that you have Drasi Server running, explore these topics:
       </div>
     </div>
   </a>
-  <a href="../tutorials/">
-    <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-graduation-cap"></i></div>
+  <a href="../how-to-guides/configuration/configure-drasi-server/">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-cogs"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">Tutorials</h3>
-        <p class="unified-card-summary">Follow hands-on tutorials for real-world scenarios</p>
+        <h3 class="unified-card-title">Server Configuration</h3>
+        <p class="unified-card-summary">Deep dive into all configuration options</p>
       </div>
     </div>
   </a>

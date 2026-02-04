@@ -8,9 +8,6 @@ related:
   concepts:
     - title: "Sources"
       url: "/concepts/sources/"
-  tutorials:
-    - title: "SLA Breach Alerting"
-      url: "/drasi-server/tutorials/sla-breach-alerting/"
   howto:
     - title: "Configure Bootstrap Providers"
       url: "/drasi-server/how-to-guides/configuration/configure-bootstrap-providers/"
@@ -167,19 +164,89 @@ Notes:
 - Large transactions are buffered and dispatched together on commit; very large transactions can increase memory usage.
 - Monitor replication slot lag to avoid excessive WAL retention.
 
+## Verifying It Works
+
+After starting Drasi Server with your PostgreSQL source, verify the connection:
+
+### 1. Check source status
+
+```bash
+curl http://localhost:8080/api/v1/sources/orders-db
+```
+
+Expected response includes `"status": "running"`.
+
+### 2. Make a test change in PostgreSQL
+
+```sql
+INSERT INTO public.orders (id, customer_id, total, status)
+VALUES (999, 1, 100.00, 'pending');
+```
+
+### 3. Verify the change was captured
+
+If you have a log reaction configured:
+
+```
+[console-output] Query 'my-query' (1 items):
+[console-output]   [ADD] {"id":"999","customer_id":"1","total":"100.00","status":"pending"}
+```
+
+Or query results via API:
+
+```bash
+curl http://localhost:8080/api/v1/queries/my-query/results
+```
+
+### 4. Check replication slot in PostgreSQL
+
+```sql
+SELECT slot_name, active, restart_lsn 
+FROM pg_replication_slots 
+WHERE slot_name = 'drasi_slot';
+```
+
 ## Troubleshooting
 
-**"logical decoding requires wal_level >= logical"**
-- Ensure `wal_level = logical` and restart PostgreSQL.
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `logical decoding requires wal_level >= logical` | WAL level too low | Set `wal_level = logical` in `postgresql.conf` and restart |
+| `permission denied to create replication slot` | Missing permission | `ALTER USER drasi_user WITH REPLICATION;` |
+| `MD5 authentication is not supported` | Auth method incompatible | Use `scram-sha-256` or `trust` in `pg_hba.conf` |
+| `publication "drasi_publication" does not exist` | Publication not created | `CREATE PUBLICATION drasi_publication FOR TABLE ...;` |
+| `could not connect to server: Connection refused` | Wrong host/port | Verify `host` and `port` values, check firewall |
+| No changes captured | Table not in publication | Verify table is in publication: `SELECT * FROM pg_publication_tables;` |
+| Unstable element IDs | No primary key | Add primary key or configure `tableKeys` |
 
-**"permission denied to create replication slot"**
-- Grant replication: `ALTER USER drasi_user WITH REPLICATION;`
+### PostgreSQL Permissions Checklist
 
-**"MD5 authentication is not supported"**
-- Configure PostgreSQL to use `scram-sha-256` (recommended) or cleartext in `pg_hba.conf`.
+Your database user needs:
 
-**No primary key / unstable element IDs**
-- Add a primary key, or configure `tableKeys` for the table.
+```sql
+-- Required permissions
+ALTER USER drasi_user WITH REPLICATION LOGIN;
+GRANT USAGE ON SCHEMA public TO drasi_user;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO drasi_user;
+
+-- For tables without primary keys (if using REPLICA IDENTITY FULL)
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+```
+
+### Understanding Replica Identity
+
+PostgreSQL's replica identity determines what data is included in WAL for UPDATE/DELETE:
+
+| Setting | Behavior | Use When |
+|---------|----------|----------|
+| `DEFAULT` | Primary key columns only | Tables have primary keys |
+| `FULL` | All columns | Need before/after values, or no primary key |
+| `NOTHING` | No old values | Inserts only (not recommended) |
+
+Set per table:
+
+```sql
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+```
 
 ## Known limitations
 

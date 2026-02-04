@@ -111,7 +111,7 @@ description: >
       </div>
     </div>
   </a>
-  <a href="/learning-paths/">
+  <!-- <a href="/learning-paths/">
     <div class="unified-card unified-card--tutorials">
       <div class="unified-card-icon">
         <i class="fas fa-route"></i>
@@ -121,7 +121,7 @@ description: >
         <p class="unified-card-summary">Structured learning paths for different roles: developers, DevOps/SRE, and architects.</p>
       </div>
     </div>
-  </a>
+  </a> -->
   <a href="/reference/">
     <div class="unified-card unified-card--reference">
       <div class="unified-card-icon">

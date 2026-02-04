@@ -220,6 +220,104 @@ curl -X POST http://localhost:9000/sources/events-api/events/batch \
 - No built-in auth/TLS; use a gateway/reverse-proxy if you need them.
 - `endpoint` and `timeoutMs` are accepted by Drasi Server configuration but are currently not enforced/used by the plugin implementation.
 
+## Producer Examples
+
+### Python
+
+```python
+import requests
+import json
+from datetime import datetime
+
+DRASI_URL = "http://localhost:9000"
+SOURCE_ID = "events-api"
+
+def send_event(operation, element=None, element_id=None, labels=None):
+    """Send a change event to Drasi HTTP source."""
+    url = f"{DRASI_URL}/sources/{SOURCE_ID}/events"
+    
+    if operation in ("insert", "update"):
+        payload = {
+            "operation": operation,
+            "element": element
+        }
+    else:  # delete
+        payload = {
+            "operation": "delete",
+            "id": element_id,
+            "labels": labels or []
+        }
+    
+    response = requests.post(url, json=payload)
+    response.raise_for_status()
+    return response.json()
+
+# Insert a new user
+send_event("insert", element={
+    "type": "node",
+    "id": "user-123",
+    "labels": ["User"],
+    "properties": {
+        "name": "Alice",
+        "email": "alice@example.com",
+        "created_at": datetime.now().isoformat()
+    }
+})
+
+# Update the user
+send_event("update", element={
+    "type": "node",
+    "id": "user-123",
+    "labels": ["User"],
+    "properties": {
+        "name": "Alice Smith",
+        "email": "alice.smith@example.com"
+    }
+})
+
+# Delete the user
+send_event("delete", element_id="user-123", labels=["User"])
+```
+
+### Node.js
+
+```javascript
+const axios = require('axios');
+
+const DRASI_URL = 'http://localhost:9000';
+const SOURCE_ID = 'events-api';
+
+async function sendEvent(event) {
+  const url = `${DRASI_URL}/sources/${SOURCE_ID}/events`;
+  const response = await axios.post(url, event);
+  return response.data;
+}
+
+// Insert a node
+await sendEvent({
+  operation: 'insert',
+  element: {
+    type: 'node',
+    id: 'order-456',
+    labels: ['Order'],
+    properties: {
+      customer_id: 'user-123',
+      total: 99.99,
+      status: 'pending'
+    }
+  }
+});
+
+// Send batch of events
+const batchUrl = `${DRASI_URL}/sources/${SOURCE_ID}/events/batch`;
+await axios.post(batchUrl, {
+  events: [
+    { operation: 'insert', element: { type: 'node', id: 'item-1', labels: ['Item'], properties: { name: 'Widget' }}},
+    { operation: 'insert', element: { type: 'node', id: 'item-2', labels: ['Item'], properties: { name: 'Gadget' }}}
+  ]
+});
+```
+
 ## Documentation resources
 
 <div class="card-grid card-grid--2">

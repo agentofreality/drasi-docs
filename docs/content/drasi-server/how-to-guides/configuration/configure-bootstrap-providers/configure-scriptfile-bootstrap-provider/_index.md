@@ -63,9 +63,93 @@ For the complete schema and supported record types, see the provider README.
 | `kind` | string | Yes | Must be `scriptfile` |
 | `filePaths` | array of strings | Yes | JSONL files to read (in order) |
 
+## Creating JSONL Files
+
+### File Structure
+
+Each JSONL file contains one JSON object per line. The first record must be a `Header`, and the last should be a `Finish`:
+
+```jsonl
+{"kind":"Header","start_time":"2024-01-01T00:00:00Z","description":"Initial products"}
+{"kind":"Node","id":"prod-1","labels":["Product"],"properties":{"name":"Widget","price":9.99,"stock":100}}
+{"kind":"Node","id":"prod-2","labels":["Product"],"properties":{"name":"Gadget","price":19.99,"stock":50}}
+{"kind":"Finish","description":"Done"}
+```
+
+### Python Script to Generate JSONL
+
+```python
+import json
+from datetime import datetime
+
+def create_bootstrap_file(data, output_path, description="Bootstrap data"):
+    """Create a JSONL bootstrap file from a list of records."""
+    with open(output_path, 'w') as f:
+        # Header
+        f.write(json.dumps({
+            "kind": "Header",
+            "start_time": datetime.now().isoformat() + "Z",
+            "description": description
+        }) + '\n')
+        
+        # Data records
+        for record in data:
+            f.write(json.dumps(record) + '\n')
+        
+        # Finish
+        f.write(json.dumps({
+            "kind": "Finish",
+            "description": "Done"
+        }) + '\n')
+
+# Example: Create product bootstrap data
+products = [
+    {"kind": "Node", "id": "prod-1", "labels": ["Product"], 
+     "properties": {"name": "Widget", "price": 9.99, "stock": 100}},
+    {"kind": "Node", "id": "prod-2", "labels": ["Product"], 
+     "properties": {"name": "Gadget", "price": 19.99, "stock": 50}},
+]
+
+create_bootstrap_file(products, "bootstrap/products.jsonl", "Product catalog")
+```
+
+### Record Types
+
+| Kind | Required Fields | Description |
+|------|-----------------|-------------|
+| `Header` | `start_time` | First record; marks bootstrap start |
+| `Node` | `id`, `labels`, `properties` | A graph node |
+| `Relation` | `id`, `labels`, `start_id`, `end_id`, `properties` | A relationship between nodes |
+| `Finish` | (none) | Last record; marks bootstrap complete |
+
+### Relation Example
+
+```jsonl
+{"kind":"Header","start_time":"2024-01-01T00:00:00Z","description":"Orders with items"}
+{"kind":"Node","id":"order-1","labels":["Order"],"properties":{"total":29.98,"status":"pending"}}
+{"kind":"Node","id":"item-1","labels":["OrderItem"],"properties":{"product":"Widget","quantity":2}}
+{"kind":"Node","id":"item-2","labels":["OrderItem"],"properties":{"product":"Gadget","quantity":1}}
+{"kind":"Relation","id":"rel-1","labels":["CONTAINS"],"start_id":"order-1","end_id":"item-1","properties":{}}
+{"kind":"Relation","id":"rel-2","labels":["CONTAINS"],"start_id":"order-1","end_id":"item-2","properties":{}}
+{"kind":"Finish","description":"Done"}
+```
+
 ## Performance / operational notes
 
 - This provider streams files line-by-line (it does not require loading the whole dataset into memory), but bootstrap volume still impacts memory/CPU based on `queries[].bootstrapBufferSize`.
+
+## Verifying Bootstrap Worked
+
+After Drasi Server starts, query results should include bootstrapped data:
+
+```bash
+curl http://localhost:8080/api/v1/queries/my-query/results
+```
+
+If bootstrap data is missing:
+- Check file paths are accessible to Drasi Server (especially in Docker)
+- Verify JSONL format is correct (one valid JSON object per line)
+- Check logs for bootstrap errors
 
 ## Documentation resources
 

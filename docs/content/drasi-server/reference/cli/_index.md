@@ -21,6 +21,19 @@ related:
 
 {{< term "Drasi Server" >}} command-line interface reference.
 
+## Common Tasks
+
+| Task | Command |
+|------|---------|
+| Start server | `drasi-server --config config/server.yaml` |
+| Start on different port | `drasi-server --config config/server.yaml --port 9090` |
+| Validate config | `drasi-server validate --config config/server.yaml` |
+| Show resolved config | `drasi-server validate --config config/server.yaml --show-resolved` |
+| Create new config | `drasi-server init --output config/server.yaml` |
+| Check dependencies | `drasi-server doctor --all` |
+| Debug logging | `RUST_LOG=debug drasi-server --config config/server.yaml` |
+| Health check | `curl http://localhost:8080/health` |
+
 ## Synopsis
 
 ```
@@ -283,4 +296,44 @@ curl -f http://localhost:8080/health || exit 1
 
 # Run tests
 # ...
+```
+
+## Exit Codes
+
+| Code | Command | Meaning |
+|------|---------|---------|
+| 0 | All | Success |
+| 1 | `validate` | Configuration is invalid |
+| 1 | `run` | Server failed to start (config error, port in use) |
+| 1 | `doctor` | Required dependency missing |
+| 2 | All | Invalid command-line arguments |
+
+## Shell Completion
+
+Generate shell completion scripts for your preferred shell:
+
+### Bash
+
+```bash
+# Add to ~/.bashrc
+eval "$(drasi-server completions bash)"
+
+# Or save to a file
+drasi-server completions bash > ~/.local/share/bash-completion/completions/drasi-server
+```
+
+### Zsh
+
+```bash
+# Add to ~/.zshrc
+eval "$(drasi-server completions zsh)"
+
+# Or save to a file
+drasi-server completions zsh > ~/.zsh/completions/_drasi-server
+```
+
+### Fish
+
+```bash
+drasi-server completions fish > ~/.config/fish/completions/drasi-server.fish
 ```

@@ -26,6 +26,59 @@ related:
 
 {{< term "Drasi Server" >}} exposes a REST API for managing {{< term "Source" "sources" >}}, {{< term "Continuous Query" "queries" >}}, and {{< term "Reaction" "reactions" >}}.
 
+## Common Workflows
+
+### Start a complete pipeline dynamically
+
+```bash
+# 1. Create a source
+curl -X POST http://localhost:8080/api/v1/sources \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"postgres","id":"db","host":"localhost","port":5432,"database":"mydb","user":"user","password":"pass","tables":["public.items"]}'
+
+# 2. Create a query that subscribes to the source
+curl -X POST http://localhost:8080/api/v1/queries \
+  -H "Content-Type: application/json" \
+  -d '{"id":"active-items","query":"MATCH (i:items) WHERE i.active RETURN i","sources":[{"sourceId":"db"}]}'
+
+# 3. Create a reaction that consumes query results
+curl -X POST http://localhost:8080/api/v1/reactions \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"log","id":"logger","queries":["active-items"]}'
+
+# 4. Start all components (if autoStart was not set)
+curl -X POST http://localhost:8080/api/v1/sources/db/start
+curl -X POST http://localhost:8080/api/v1/queries/active-items/start
+curl -X POST http://localhost:8080/api/v1/reactions/logger/start
+```
+
+### Poll query results
+
+```bash
+# Get current query result set
+curl http://localhost:8080/api/v1/queries/active-items/results
+
+# Check if results have changed (compare counts or hashes)
+watch -n 1 'curl -s http://localhost:8080/api/v1/queries/active-items/results | jq .data.count'
+```
+
+### Restart a component
+
+```bash
+# Stop and restart a source (useful after database changes)
+curl -X POST http://localhost:8080/api/v1/sources/db/stop
+curl -X POST http://localhost:8080/api/v1/sources/db/start
+```
+
+### Delete a pipeline (in order)
+
+```bash
+# Stop and delete in reverse order: reactions → queries → sources
+curl -X DELETE http://localhost:8080/api/v1/reactions/logger
+curl -X DELETE http://localhost:8080/api/v1/queries/active-items  
+curl -X DELETE http://localhost:8080/api/v1/sources/db
+```
+
 ## Base URL
 
 ```
@@ -65,6 +118,51 @@ Error responses:
   "status": "error",
   "message": "Error description",
   "data": null
+}
+```
+
+### HTTP Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| 200 | Success |
+| 201 | Resource created |
+| 400 | Bad request (invalid JSON, missing fields) |
+| 404 | Resource not found |
+| 409 | Conflict (duplicate ID, resource in use) |
+| 500 | Internal server error |
+
+### Common Error Responses
+
+**Resource not found:**
+```json
+{
+  "status": "error",
+  "message": "Source 'my-source' not found"
+}
+```
+
+**Duplicate ID:**
+```json
+{
+  "status": "error",
+  "message": "Source with id 'my-source' already exists"
+}
+```
+
+**Invalid configuration:**
+```json
+{
+  "status": "error", 
+  "message": "Invalid source config: missing required field 'host'"
+}
+```
+
+**Dependency in use:**
+```json
+{
+  "status": "error",
+  "message": "Cannot delete source 'my-source': subscribed by query 'my-query'"
 }
 ```
 

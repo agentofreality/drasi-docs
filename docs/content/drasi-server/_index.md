@@ -74,21 +74,12 @@ Drasi Server is ideal when you need **full Drasi functionality** as a standalone
 ## Explore Drasi Server
 
 <div class="card-grid">
-  <a href="learning-paths/">
-    <div class="unified-card unified-card--concepts">
-      <div class="unified-card-icon"><i class="fas fa-route"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Learning Paths</h3>
-        <p class="unified-card-summary">Structured guides for your role and goals</p>
-      </div>
-    </div>
-  </a>
-  <a href="tutorials/">
+  <a href="getting-started/">
     <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-graduation-cap"></i></div>
+      <div class="unified-card-icon"><i class="fas fa-rocket"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">Tutorials</h3>
-        <p class="unified-card-summary">Learn through hands-on examples</p>
+        <h3 class="unified-card-title">Getting Started</h3>
+        <p class="unified-card-summary">Get Drasi Server running in minutes</p>
       </div>
     </div>
   </a>
@@ -110,4 +101,24 @@ Drasi Server is ideal when you need **full Drasi functionality** as a standalone
       </div>
     </div>
   </a>
+  <!-- Learning Paths and Tutorials coming soon
+  <a href="learning-paths/">
+    <div class="unified-card unified-card--concepts">
+      <div class="unified-card-icon"><i class="fas fa-route"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Learning Paths</h3>
+        <p class="unified-card-summary">Structured guides for your role and goals</p>
+      </div>
+    </div>
+  </a>
+  <a href="tutorials/">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fas fa-graduation-cap"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Tutorials</h3>
+        <p class="unified-card-summary">Learn through hands-on examples</p>
+      </div>
+    </div>
+  </a>
+  -->
 </div>

@@ -15,7 +15,7 @@ description: "Step-by-step instructions for configuring Drasi Server"
       <div class="unified-card-icon"><i class="fas fa-file-alt"></i></div>
       <div class="unified-card-content">
         <h3 class="unified-card-title">Configure Drasi Server</h3>
-        <p class="unified-card-summary">Configure Drasi Server</p>
+        <p class="unified-card-summary">Server settings, persistence, and configuration patterns</p>
       </div>
     </div>
   </a>
@@ -28,12 +28,12 @@ description: "Step-by-step instructions for configuring Drasi Server"
       </div>
     </div>
   </a>
-  <a href="configure-bootstrap-providers/">
+  <a href="configure-queries/">
     <div class="unified-card unified-card--howto">
-      <div class="unified-card-icon"><i class="fas fa-play-circle"></i></div>
+      <div class="unified-card-icon"><i class="fas fa-search"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">Configure Bootstrap Providers</h3>
-        <p class="unified-card-summary">Initialize queries with existing data</p>
+        <h3 class="unified-card-title">Configure Queries</h3>
+        <p class="unified-card-summary">Define continuous queries with filtering, joins, and aggregations</p>
       </div>
     </div>
   </a>
@@ -43,6 +43,15 @@ description: "Step-by-step instructions for configuring Drasi Server"
       <div class="unified-card-content">
         <h3 class="unified-card-title">Configure Reactions</h3>
         <p class="unified-card-summary">Set up Log, HTTP, gRPC, SSE, and Platform reactions</p>
+      </div>
+    </div>
+  </a>
+  <a href="configure-bootstrap-providers/">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-play-circle"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Configure Bootstrap Providers</h3>
+        <p class="unified-card-summary">Initialize queries with existing data</p>
       </div>
     </div>
   </a>

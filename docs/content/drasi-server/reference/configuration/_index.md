@@ -37,6 +37,24 @@ It covers:
 
 It does **not** document the per-component configuration for Sources, Queries, Reactions, or Bootstrap Providers (those have dedicated pages).
 
+## Quick Reference
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `id` | string | UUID | Server/instance identifier |
+| `host` | string | `0.0.0.0` | API bind address |
+| `port` | integer | `8080` | API port |
+| `logLevel` | string | `info` | `trace`, `debug`, `info`, `warn`, `error` |
+| `persistConfig` | boolean | `true` | Save API changes to config file |
+| `persistIndex` | boolean | `false` | Use persistent RocksDB indexes |
+| `stateStore` | object | None | Plugin state persistence |
+| `defaultPriorityQueueCapacity` | integer | None | Default queue size |
+| `defaultDispatchBufferCapacity` | integer | None | Default buffer size |
+| `sources` | array | `[]` | Source configurations |
+| `queries` | array | `[]` | Query configurations |
+| `reactions` | array | `[]` | Reaction configurations |
+| `instances` | array | `[]` | Multi-instance configurations |
+
 ## Key rules
 
 - Config is **YAML or JSON**.
@@ -56,6 +74,90 @@ drasi-server --config /path/to/server.yaml
 {{< alert title="Port override" color="info" >}}
 You can override the configured port at runtime with `--port`. The config file still remains the source of truth for the persisted configuration.
 {{< /alert >}}
+
+## Minimal Configuration
+
+```yaml
+# Smallest useful config - mock source with log output
+host: 0.0.0.0
+port: 8080
+
+sources:
+  - kind: mock
+    id: test
+    dataType: sensor
+
+queries:
+  - id: all-data
+    query: "MATCH (n) RETURN n"
+    sources:
+      - sourceId: test
+    autoStart: true
+
+reactions:
+  - kind: log
+    id: console
+    queries: [all-data]
+    autoStart: true
+```
+
+## Full Configuration Example
+
+```yaml
+# Complete production-ready configuration
+id: production-server
+host: 0.0.0.0
+port: ${PORT:-8080}
+logLevel: ${LOG_LEVEL:-info}
+
+persistConfig: true
+persistIndex: true
+
+stateStore:
+  kind: redb
+  path: ${DATA_DIR:-./data}/state.redb
+
+defaultPriorityQueueCapacity: 50000
+defaultDispatchBufferCapacity: 5000
+
+sources:
+  - kind: postgres
+    id: orders-db
+    autoStart: true
+    host: ${DB_HOST}
+    port: ${DB_PORT:-5432}
+    database: ${DB_NAME}
+    user: ${DB_USER}
+    password: ${DB_PASSWORD}
+    tables:
+      - public.orders
+      - public.customers
+    bootstrapProvider:
+      kind: postgres
+
+queries:
+  - id: pending-orders
+    autoStart: true
+    query: |
+      MATCH (o:orders)
+      WHERE o.status = 'pending'
+      RETURN o.id, o.total, o.customer_id
+    sources:
+      - sourceId: orders-db
+
+reactions:
+  - kind: http
+    id: webhook
+    queries: [pending-orders]
+    autoStart: true
+    baseUrl: ${WEBHOOK_URL}
+    token: ${WEBHOOK_TOKEN}
+    routes:
+      pending-orders:
+        added:
+          url: /orders/new
+          method: POST
+```
 
 ## Top-level schema (overview)
 
@@ -206,6 +308,19 @@ stateStore:
 ```
 
 When running `drasi-server`, it will also attempt to load a `.env` file from the **same directory as the config file**.
+
+## Common Validation Errors
+
+| Error Message | Cause | Solution |
+|---------------|-------|----------|
+| `unknown field 'field_name'` | Using an unrecognized field name | Check spelling and use camelCase (e.g., `autoStart` not `auto_start`) |
+| `missing field 'id'` | Required field not provided | Add the missing `id` field to the component |
+| `invalid type: expected string` | Wrong data type | Check that the value type matches the schema (string, integer, boolean) |
+| `Environment variable 'VAR' not set` | Required env var missing | Set the variable or use `${VAR:-default}` syntax |
+| `invalid port: out of range` | Port number invalid | Use a port between 1 and 65535 |
+| `duplicate id` | Two components share the same id | Ensure all source, query, and reaction IDs are unique |
+| `unknown source 'sourceId'` | Query references non-existent source | Check the `sourceId` in query sources matches a defined source |
+| `source 'id' already subscribed by 'query'` | Source used by multiple queries | Each source can only be subscribed to by one query |
 
 ## Validating configuration
 

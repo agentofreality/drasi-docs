@@ -513,3 +513,122 @@ sources:
   ]
 }
 ```
+
+## Configuration Patterns
+
+### Managing Secrets with Environment Variables
+
+Never store secrets directly in configuration files. Use environment variables:
+
+```yaml
+sources:
+  - kind: postgres
+    id: production-db
+    host: ${DB_HOST}
+    database: ${DB_NAME}
+    user: ${DB_USER}
+    password: ${DB_PASSWORD}   # Required - no default
+```
+
+Create a `.env` file in the same directory as your config (for development only):
+
+```bash
+# config/.env - DO NOT COMMIT TO VERSION CONTROL
+DB_HOST=localhost
+DB_NAME=myapp
+DB_USER=drasi
+DB_PASSWORD=secret123
+```
+
+For production, set environment variables through your deployment platform (Docker, systemd, etc.).
+
+### Separating Concerns with Multiple Config Files
+
+For complex deployments, consider organizing configs by environment:
+
+```
+config/
+├── base.yaml          # Shared settings
+├── development.yaml   # Dev overrides
+└── production.yaml    # Prod settings
+```
+
+Currently Drasi Server loads a single config file, so you'd use a tool like `yq` to merge them:
+
+```bash
+# Merge base + production
+yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+  config/base.yaml config/production.yaml > config/merged.yaml
+
+drasi-server --config config/merged.yaml
+```
+
+### Validating Before Deployment
+
+Always validate configuration before deploying:
+
+```bash
+# Basic validation
+drasi-server validate --config config/server.yaml
+
+# Show resolved values (with env vars expanded)
+drasi-server validate --config config/server.yaml --show-resolved
+
+# Use in CI/CD pipelines
+drasi-server validate --config config/server.yaml || exit 1
+```
+
+### Development vs Production Configuration
+
+**Development** — Prioritize fast iteration and visibility:
+
+```yaml
+logLevel: debug
+persistConfig: false      # Don't save API changes
+persistIndex: false       # In-memory indexes (faster startup)
+
+sources:
+  - kind: mock
+    id: test-data
+    dataType: sensor
+    intervalMs: 1000      # Fast data generation
+```
+
+**Production** — Prioritize reliability and persistence:
+
+```yaml
+logLevel: info
+persistConfig: true       # Save API changes
+persistIndex: true        # Persistent indexes survive restart
+
+stateStore:
+  kind: redb
+  path: /var/lib/drasi/state.redb
+
+sources:
+  - kind: postgres
+    id: orders-db
+    host: ${DB_HOST}
+    # ... full connection config
+```
+
+## Troubleshooting Configuration
+
+### Common Errors
+
+| Error Message | Cause | Solution |
+|---------------|-------|----------|
+| `unknown field 'log_level'` | Snake_case key used | Use camelCase: `logLevel` |
+| `missing field 'kind'` | Source/reaction missing `kind` | Add `kind: postgres` (or appropriate type) |
+| `unknown source kind 'postgresql'` | Typo in kind value | Use exact spelling: `postgres` |
+| `Required environment variable not set` | `${VAR}` syntax with unset var | Set the variable or use `${VAR:-default}` |
+| `Invalid host '...'` | Bad hostname format | Use valid hostname or IP address |
+| `Invalid port 0` | Port out of range | Use port 1-65535 |
+
+### Debugging Tips
+
+1. **Start with minimal config** — Get the basics working before adding complexity
+2. **Use `--show-resolved`** — See what values Drasi Server actually receives
+3. **Check logs** — Set `logLevel: debug` for detailed startup information
+4. **Validate incrementally** — Add one source/query/reaction at a time
+```

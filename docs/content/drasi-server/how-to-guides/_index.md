@@ -19,7 +19,7 @@ description: "Step-by-step instructions for working with Drasi Server"
       </div>
     </div>
   </a>
-  <a href="configure-sources/">
+  <a href="configuration/">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-cogs"></i></div>
       <div class="unified-card-content">
