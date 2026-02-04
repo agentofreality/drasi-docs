@@ -225,3 +225,6 @@ DrasiLib
 drasi-lib
 PostDaprPubSub
 SyncDaprStateStore
+tableKeys
+ScriptFile
+NoOp
