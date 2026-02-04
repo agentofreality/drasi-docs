@@ -72,8 +72,7 @@ Start with basic server settings:
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
-auto_start: true
+logLevel: info
 ```
 
 ### Add a Source
@@ -84,9 +83,9 @@ Sources connect Drasi Server to your data. For this tutorial, we'll use a **mock
 sources:
   - kind: mock
     id: demo-source
-    auto_start: true
-    data_type: sensor_live
-    interval_ms: 2000
+    autoStart: true
+    dataType: sensor
+    intervalMs: 2000
 ```
 
 This creates a source that generates sensor readings (temperature, humidity) every 2 seconds.
@@ -102,8 +101,8 @@ queries:
       MATCH (s:Sensor)
       RETURN s.id, s.temperature, s.humidity, s.timestamp
     sources:
-      - source_id: demo-source
-    auto_start: true
+      - sourceId: demo-source
+    autoStart: true
 ```
 
 This Continuous Query uses {{< term "openCypher" >}} to match all `Sensor` {{< term "Node" "nodes" >}} and return their properties.
@@ -118,7 +117,7 @@ reactions:
     id: console-output
     queries:
       - all-sensors
-    auto_start: true
+    autoStart: true
 ```
 
 ### Complete Configuration
@@ -128,15 +127,14 @@ Your complete `config.yaml` file should look like this:
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
-auto_start: true
+logLevel: info
 
 sources:
   - kind: mock
     id: demo-source
-    auto_start: true
-    data_type: sensor
-    interval_ms: 2000
+    autoStart: true
+    dataType: sensor
+    intervalMs: 2000
 
 queries:
   - id: all-sensors
@@ -144,15 +142,15 @@ queries:
       MATCH (s:Sensor)
       RETURN s.id, s.temperature, s.humidity, s.timestamp
     sources:
-      - source_id: demo-source
-    auto_start: true
+      - sourceId: demo-source
+    autoStart: true
 
 reactions:
   - kind: log
     id: console-output
     queries:
       - all-sensors
-    auto_start: true
+    autoStart: true
 ```
 
 ## Run Drasi Server

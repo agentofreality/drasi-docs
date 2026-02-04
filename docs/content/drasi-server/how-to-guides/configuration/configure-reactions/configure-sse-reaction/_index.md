@@ -278,10 +278,15 @@ reactions:
     heartbeatIntervalMs: 30000
     routes:
       live-orders:
-        path: /orders
-      order-alerts:
-        path: /alerts
         added:
+          path: /orders
+        updated:
+          path: /orders
+        deleted:
+          path: /orders
+      order-alerts:
+        added:
+          path: /alerts
           template: '{"alert":"high_value_order","order":{{json after}}}'
 ```
 
