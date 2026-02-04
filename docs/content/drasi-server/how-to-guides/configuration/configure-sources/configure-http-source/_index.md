@@ -3,7 +3,7 @@ type: "docs"
 title: "Configure HTTP Source"
 linkTitle: "HTTP"
 weight: 20
-description: "Receive events via HTTP endpoints"
+description: "Receive change events via HTTP"
 related:
   concepts:
     - title: "Sources"
@@ -18,317 +18,227 @@ related:
       url: "/drasi-server/reference/configuration/"
 ---
 
-The HTTP {{< term "Source" >}} creates an HTTP endpoint that receives events from external systems. Use it for webhooks, custom integrations, or any system that can send HTTP requests.
+The HTTP {{< term "Source" >}} exposes HTTP endpoints that external applications can use to **push change events** (insert/update/delete) into {{< term "Drasi Server" >}}.
 
-## Basic Configuration
+Use it for webhooks, custom integrations, or any system that can make HTTP requests.
 
-```yaml
-sources:
-  - kind: http
-    id: webhook-receiver
-    auto_start: true
-    host: 0.0.0.0
-    port: 9000
-    timeout_ms: 10000
-```
+## When to use the HTTP source
 
-## Configuration Reference
+- Accept change events from systems that can’t use gRPC (simple HTTP clients, webhooks).
+- Build a lightweight ingestion endpoint for custom apps and scripts.
+- Feed Drasi from an event bridge that transforms external events into Drasi’s change-event schema.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `kind` | string | Required | Must be `http` |
-| `id` | string | Required | Unique source identifier |
-| `auto_start` | boolean | `true` | Start source automatically |
-| `host` | string | Required | Listen address |
-| `port` | integer | Required | Listen port |
-| `endpoint` | string | Auto-generated | Custom endpoint path |
-| `timeout_ms` | integer | `10000` | Request timeout in milliseconds |
+## Prerequisites
 
-### Adaptive Batching Options
+- Your producer can reach the HTTP endpoint (`host:port`).
+- You can generate JSON payloads matching the event schema below.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `adaptive_enabled` | boolean | `false` | Enable adaptive batching |
-| `adaptive_min_batch_size` | integer | None | Minimum batch size |
-| `adaptive_max_batch_size` | integer | None | Maximum batch size |
-| `adaptive_min_wait_ms` | integer | None | Minimum wait time |
-| `adaptive_max_wait_ms` | integer | None | Maximum wait time |
-| `adaptive_window_secs` | integer | None | Window for adaptive calculations |
+{{< alert title="No built-in auth" color="warning" >}}
+The HTTP source does not provide authentication/authorization. Run it on a trusted network or place it behind an API gateway / reverse proxy that enforces auth and TLS.
+{{< /alert >}}
 
-## Sending Events
+## Quick example (Drasi Server config)
 
-### Event Format
-
-Send events as JSON to the HTTP endpoint:
-
-```bash
-curl -X POST http://localhost:9000/source/webhook-receiver \
-  -H "Content-Type: application/json" \
-  -d '{
-    "op": "insert",
-    "label": "Order",
-    "id": "order-123",
-    "properties": {
-      "customer_id": "cust-456",
-      "total": 99.99,
-      "status": "pending"
-    }
-  }'
-```
-
-### Supported Operations
-
-| Operation | Description |
-|-----------|-------------|
-| `insert` | Add a new node |
-| `update` | Update an existing node |
-| `delete` | Remove a node |
-
-### Insert Event
-
-```json
-{
-  "op": "insert",
-  "label": "Order",
-  "id": "order-123",
-  "properties": {
-    "customer_id": "cust-456",
-    "total": 99.99,
-    "status": "pending"
-  }
-}
-```
-
-### Update Event
-
-```json
-{
-  "op": "update",
-  "label": "Order",
-  "id": "order-123",
-  "properties": {
-    "status": "shipped",
-    "shipped_at": "2024-01-15T10:30:00Z"
-  }
-}
-```
-
-### Delete Event
-
-```json
-{
-  "op": "delete",
-  "label": "Order",
-  "id": "order-123"
-}
-```
-
-### Batch Events
-
-Send multiple events in a single request:
-
-```bash
-curl -X POST http://localhost:9000/source/webhook-receiver \
-  -H "Content-Type: application/json" \
-  -d '[
-    {"op": "insert", "label": "Order", "id": "order-1", "properties": {"total": 50}},
-    {"op": "insert", "label": "Order", "id": "order-2", "properties": {"total": 75}},
-    {"op": "update", "label": "Order", "id": "order-1", "properties": {"status": "paid"}}
-  ]'
-```
-
-## Custom Endpoint
-
-Specify a custom endpoint path:
+Drasi Server source configuration uses **camelCase** keys.
 
 ```yaml
 sources:
   - kind: http
-    id: orders-webhook
-    host: 0.0.0.0
-    port: 9000
-    endpoint: /webhooks/orders
-```
+    id: events-api
+    autoStart: true
 
-Events would be sent to `http://localhost:9000/webhooks/orders`.
-
-## Adaptive Batching
-
-For high-throughput scenarios, enable adaptive batching:
-
-```yaml
-sources:
-  - kind: http
-    id: high-volume-events
-    host: 0.0.0.0
-    port: 9000
-    timeout_ms: 30000
-    adaptive_enabled: true
-    adaptive_min_batch_size: 10
-    adaptive_max_batch_size: 1000
-    adaptive_min_wait_ms: 100
-    adaptive_max_wait_ms: 5000
-    adaptive_window_secs: 60
-```
-
-Adaptive batching dynamically adjusts batch sizes based on incoming event volume.
-
-## Multiple HTTP Sources
-
-Run multiple HTTP sources on different ports:
-
-```yaml
-sources:
-  - kind: http
-    id: orders-webhook
     host: 0.0.0.0
     port: 9000
 
-  - kind: http
-    id: inventory-webhook
-    host: 0.0.0.0
-    port: 9001
-
-  - kind: http
-    id: customers-webhook
-    host: 0.0.0.0
-    port: 9002
+    # Optional
+    endpoint: null
+    timeoutMs: 10000
 ```
 
-## Docker Port Mapping
-
-When running in Docker, map the HTTP source ports:
+If you run Drasi Server in Docker, remember to publish the HTTP source port:
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml (snippet)
 services:
   drasi-server:
     image: ghcr.io/drasi-project/drasi-server:latest
     ports:
-      - "8080:8080"   # REST API
+      - "8080:8080"   # Drasi Server REST API
       - "9000:9000"   # HTTP source
-      - "9001:9001"   # Another HTTP source
 ```
 
-## Use Cases
+## Connecting and sending events
 
-### Webhook Integration
+### Endpoints
 
-Receive webhooks from external services:
+The HTTP source exposes:
 
-```yaml
-sources:
-  - kind: http
-    id: github-webhooks
-    host: 0.0.0.0
-    port: 9000
-    timeout_ms: 30000
+- `GET /health`
+- `POST /sources/{sourceId}/events`
+- `POST /sources/{sourceId}/events/batch`
+
+`{sourceId}` must match the source `id` from your Drasi Server config (otherwise requests are rejected).
+
+### Event schema
+
+Events are JSON objects with a tagged-union `operation` field:
+
+- `operation: "insert" | "update"` uses an `element` (a `node` or `relation`).
+- `operation: "delete"` uses `id` (and optionally `labels`).
+
+{{< alert title="Timestamps" color="info" >}}
+If provided, `timestamp` is **nanoseconds** since Unix epoch. The HTTP source converts it to milliseconds internally.
+If omitted, the source uses the current system time.
+{{< /alert >}}
+
+#### Insert/update: node
+
+```json
+{
+  "operation": "insert",
+  "element": {
+    "type": "node",
+    "id": "user-123",
+    "labels": ["User"],
+    "properties": {
+      "email": "alice@example.com",
+      "age": 30,
+      "active": true
+    }
+  },
+  "timestamp": 1738650000000000000
+}
 ```
 
-Then configure your external service to send webhooks to `http://your-server:9000/source/github-webhooks`.
+#### Insert/update: relation
 
-### Event Bridge
-
-Bridge events from systems that can't connect directly:
-
-```yaml
-sources:
-  - kind: http
-    id: event-bridge
-    host: 0.0.0.0
-    port: 9000
+```json
+{
+  "operation": "insert",
+  "element": {
+    "type": "relation",
+    "id": "follows-1",
+    "labels": ["FOLLOWS"],
+    "from": "user-123",
+    "to": "user-456",
+    "properties": {
+      "since": "2024-01-01"
+    }
+  }
+}
 ```
 
-Use a middleware or adapter to transform external events into the expected format.
+Relationship direction semantics are:
 
-### Testing and Development
+`(from)-[relation]->(to)`
 
-Create test data programmatically:
+#### Delete
+
+```json
+{
+  "operation": "delete",
+  "id": "user-123",
+  "labels": ["User"],
+  "timestamp": 1738650001000000000
+}
+```
+
+### curl examples
+
+Single event:
 
 ```bash
-# Generate test events
-for i in {1..100}; do
-  curl -X POST http://localhost:9000/source/test-source \
-    -H "Content-Type: application/json" \
-    -d "{\"op\": \"insert\", \"label\": \"Sensor\", \"id\": \"sensor-$i\", \"properties\": {\"value\": $((RANDOM % 100))}}"
-done
-```
-
-## Complete Example
-
-```yaml
-host: 0.0.0.0
-port: 8080
-log_level: info
-
-sources:
-  - kind: http
-    id: events-api
-    auto_start: true
-    host: 0.0.0.0
-    port: 9000
-    timeout_ms: 10000
-
-queries:
-  - id: all-events
-    query: "MATCH (n) RETURN n.id, labels(n)[0] as type, n"
-    sources:
-      - source_id: events-api
-
-reactions:
-  - kind: log
-    id: event-log
-    queries: [all-events]
-```
-
-## Testing the Source
-
-### Verify Source is Running
-
-```bash
-curl http://localhost:8080/api/v1/sources/events-api
-```
-
-### Send Test Event
-
-```bash
-curl -X POST http://localhost:9000/source/events-api \
-  -H "Content-Type: application/json" \
+curl -X POST http://localhost:9000/sources/events-api/events \
+  -H 'Content-Type: application/json' \
   -d '{
-    "op": "insert",
-    "label": "TestNode",
-    "id": "test-1",
-    "properties": {"message": "Hello, Drasi!"}
+    "operation":"insert",
+    "element":{
+      "type":"node",
+      "id":"test-1",
+      "labels":["Test"],
+      "properties": {"message":"hello"}
+    }
   }'
 ```
 
-### Check Query Results
+Batch:
 
 ```bash
-curl http://localhost:8080/api/v1/queries/all-events/results
+curl -X POST http://localhost:9000/sources/events-api/events/batch \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "events": [
+      {"operation":"insert","element":{"type":"node","id":"1","labels":["Test"],"properties":{}}},
+      {"operation":"update","element":{"type":"node","id":"1","labels":["Test"],"properties":{"status":"updated"}}}
+    ]
+  }'
 ```
+
+## Configuration reference (Drasi Server)
+
+| Field | Type | Default | Description |
+|---|---:|---:|---|
+| `kind` | string | required | Must be `http`. |
+| `id` | string | required | Unique source identifier. Used as `{sourceId}` in request URLs. |
+| `autoStart` | boolean | `true` | Whether Drasi Server starts the source on startup. |
+| `host` | string | required | Address to bind the HTTP server to. |
+| `port` | integer | required | Port to listen on. |
+| `endpoint` | string | none | Reserved for future use. (Currently not used to change routing.) |
+| `timeoutMs` | integer | `10000` | Reserved for future use. (Currently not enforced by the plugin implementation.) |
+| `adaptiveEnabled` | boolean | plugin default (`true`) | Enable/disable adaptive parameter adjustment. |
+| `adaptiveMaxBatchSize` | integer | plugin default (`1000`) | Maximum events per batch. |
+| `adaptiveMinBatchSize` | integer | plugin default (`10`) | Minimum batch size used by the adaptive batcher. |
+| `adaptiveMaxWaitMs` | integer | plugin default (`100`) | Maximum time to wait before dispatching a batch. |
+| `adaptiveMinWaitMs` | integer | plugin default (`1`) | Minimum wait time between batches (helps coalesce messages). |
+| `adaptiveWindowSecs` | integer | plugin default (`5`) | Throughput measurement window. |
+| `bootstrapProvider` | object | none | Optional bootstrap provider to preload initial state. See [Configure Bootstrap Providers](/drasi-server/how-to-guides/configuration/configure-bootstrap-providers/). |
+
+## Performance tuning notes
+
+- Use the `/events/batch` endpoint when you can; it reduces HTTP overhead.
+- For bursty workloads, increase `adaptiveMaxBatchSize` (note: internal buffering scales with this).
+- For lower latency, reduce `adaptiveMaxWaitMs`.
+- If you want stable behavior (no adaptive adjustment), set `adaptiveEnabled: false`.
 
 ## Troubleshooting
 
-### Connection Refused
+**Connection refused**
+- Ensure the source is started (`autoStart: true` or started via the server API).
+- Verify Docker port publishing and firewall rules.
 
-- Verify the source is started and listening
-- Check the port isn't already in use
-- Verify firewall rules allow the connection
+**400 “Source name mismatch”**
+- The `{sourceId}` path segment must match the configured `id`.
 
-### Timeout Errors
+**Invalid event format**
+- Ensure JSON is valid.
+- Ensure `operation` is one of `insert`, `update`, `delete`.
+- For insert/update, include `element.type`, `element.id`, and `element.labels`.
+- For relations, include `from` and `to`.
 
-- Increase `timeout_ms` for slow clients
-- Check network latency
-- Consider adaptive batching for high volumes
+## Known limitations
 
-### Invalid Event Format
+- No built-in auth/TLS; use a gateway/reverse-proxy if you need them.
+- `endpoint` and `timeoutMs` are accepted by Drasi Server configuration but are currently not enforced/used by the plugin implementation.
 
-- Ensure JSON is valid
-- Include required fields: `op`, `label`, `id`
-- Include `properties` for insert/update operations
+## Documentation resources
 
-## Next Steps
-
-- [Write Continuous Queries](/drasi-server/how-to-guides/write-continuous-queries/) - Query HTTP events
-- [Configure Reactions](/drasi-server/how-to-guides/configure-reactions/) - React to events
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/sources/http/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">HTTP Source README</h3>
+        <p class="unified-card-summary">Protocol details, JSON schema, and usage examples</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-source-http" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-source-http on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>

@@ -19,330 +19,192 @@ related:
       url: "/drasi-server/reference/configuration/"
 ---
 
-The PostgreSQL {{< term "Source" >}} streams changes from PostgreSQL databases using logical replication (WAL). It monitors specified tables and converts row changes into graph {{< term "Node" >}} events for {{< term "Continuous Query" "continuous queries" >}}.
+The PostgreSQL {{< term "Source" >}} streams row-level changes from a PostgreSQL database using **logical replication (WAL / pgoutput)**.
+
+## When to use the PostgreSQL source
+
+- Keep Drasi queries continuously updated from a system-of-record PostgreSQL database.
+- Drive reactions from database changes (alerts, notifications, downstream sync, cache/materialized-view updates).
+- Build reactive services that need transactional ordering of changes.
 
 ## Prerequisites
 
-- PostgreSQL 10 or later
-- Logical replication enabled (`wal_level = logical`)
-- User with LOGIN, REPLICATION, and SELECT permissions
+- PostgreSQL **10+** (requires `pgoutput`).
+- Logical replication enabled (`wal_level = logical`).
+- A database user with **LOGIN**, **REPLICATION**, and **SELECT** permissions on replicated tables.
+- A publication that contains the tables you want to stream.
 
-## Basic Configuration
+## How it connects
 
-```yaml
-sources:
-  - kind: postgres
-    id: my-postgres
-    auto_start: true
-    host: localhost
-    port: 5432
-    database: mydb
-    user: postgres
-    password: ${DB_PASSWORD}
-    tables:
-      - public.orders
-      - public.customers
-```
+This source **connects outbound** from Drasi Server to PostgreSQL over the PostgreSQL protocol; it does not open an inbound port.
 
-## Configuration Reference
+## Quick example (Drasi Server config)
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `kind` | string | Required | Must be `postgres` |
-| `id` | string | Required | Unique source identifier |
-| `auto_start` | boolean | `true` | Start source automatically |
-| `host` | string | `localhost` | Database host |
-| `port` | integer | `5432` | Database port |
-| `database` | string | Required | Database name |
-| `user` | string | Required | Database user |
-| `password` | string | `""` | Database password |
-| `tables` | array | `[]` | Tables to monitor (schema.table format) |
-| `slot_name` | string | `drasi_slot` | Replication slot name |
-| `publication_name` | string | `drasi_publication` | Publication name |
-| `ssl_mode` | string | `prefer` | SSL mode: `disable`, `prefer`, `require` |
-| `table_keys` | array | `[]` | Primary key definitions |
-| `bootstrap_provider` | object | None | Bootstrap provider configuration |
-
-## Setting Up PostgreSQL
-
-### 1. Enable Logical Replication
-
-Edit `postgresql.conf`:
-
-```
-wal_level = logical
-max_replication_slots = 10
-max_wal_senders = 10
-```
-
-Or set dynamically:
-
-```sql
-ALTER SYSTEM SET wal_level = 'logical';
-ALTER SYSTEM SET max_replication_slots = 10;
-ALTER SYSTEM SET max_wal_senders = 10;
-```
-
-Restart PostgreSQL after changes.
-
-### 2. Create a Replication User
-
-```sql
-CREATE USER drasi_user WITH REPLICATION LOGIN PASSWORD 'secure_password';
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO drasi_user;
-```
-
-### 3. Create Publication
-
-The publication defines which tables to replicate:
-
-```sql
--- All tables
-CREATE PUBLICATION drasi_publication FOR ALL TABLES;
-
--- Or specific tables
-CREATE PUBLICATION drasi_publication FOR TABLE orders, customers;
-```
-
-### 4. Verify Setup
-
-```sql
--- Check wal_level
-SHOW wal_level;  -- Should return 'logical'
-
--- Check publication
-SELECT * FROM pg_publication;
-
--- Check replication slots
-SELECT * FROM pg_replication_slots;
-```
-
-## Data Model
-
-PostgreSQL tables are converted to graph nodes:
-
-- Each table row becomes a node
-- The table name becomes the node label
-- Table columns become node properties
-- The node ID is composed of `{table_name}:{primary_key}`
-
-Example: A row in `orders` with `id=123` becomes a node with label `orders` and ID `orders:123`.
-
-## Table Key Configuration
-
-If tables don't have explicit primary keys, or you need to specify composite keys:
-
-```yaml
-sources:
-  - kind: postgres
-    id: my-postgres
-    # ... other config
-    tables:
-      - public.orders
-      - public.order_items
-    table_keys:
-      - table: order_items
-        key_columns:
-          - order_id
-          - product_id
-```
-
-## Using SSL
-
-### SSL Modes
-
-| Mode | Description |
-|------|-------------|
-| `disable` | No SSL |
-| `prefer` | Try SSL, fall back to non-SSL |
-| `require` | Require SSL (don't verify certificate) |
-
-### SSL Configuration
-
-```yaml
-sources:
-  - kind: postgres
-    id: secure-postgres
-    host: db.example.com
-    database: production
-    user: drasi_user
-    password: ${DB_PASSWORD}
-    ssl_mode: require
-```
-
-## Bootstrap Provider
-
-Load initial data from the database before streaming:
+Drasi Server source configuration uses **camelCase** keys.
 
 ```yaml
 sources:
   - kind: postgres
     id: orders-db
-    host: localhost
-    database: myapp
-    user: postgres
-    password: secret
-    tables:
-      - public.orders
-    bootstrap_provider:
-      type: postgres
-```
+    autoStart: true
 
-The PostgreSQL bootstrap provider uses the COPY protocol for efficient bulk loading.
+    host: ${PGHOST:-localhost}
+    port: ${PGPORT:-5432}
+    database: ${PGDATABASE:-mydb}
+    user: ${PGUSER:-drasi_user}
+    password: ${PGPASSWORD}
 
-## Environment Variables
+    # The PostgreSQL publication controls which tables are streamed.
+    publicationName: drasi_publication
+    slotName: drasi_slot
 
-Use environment variables for sensitive data:
+    # Optional
+    sslMode: prefer
 
-```yaml
-sources:
-  - kind: postgres
-    id: production-db
-    host: ${DB_HOST}
-    port: ${DB_PORT:-5432}
-    database: ${DB_NAME}
-    user: ${DB_USER}
-    password: ${DB_PASSWORD}
-    ssl_mode: ${SSL_MODE:-require}
+    # Optional: used for bootstrapping and key overrides (see notes below)
     tables:
       - public.orders
       - public.customers
+    tableKeys:
+      - table: public.order_items
+        keyColumns: [order_id, product_id]
+
+    # Optional: preload initial state for newly-subscribed queries
+    bootstrapProvider:
+      kind: postgres
 ```
 
-## Complete Example
+## Configure PostgreSQL
+
+### 1) Enable logical replication
+
+Set (and restart PostgreSQL):
+
+```ini
+wal_level = logical
+max_replication_slots = 10
+max_wal_senders = 10
+```
+
+### 2) Create a replication user
+
+```sql
+CREATE USER drasi_user WITH REPLICATION LOGIN PASSWORD 'your-password';
+GRANT USAGE ON SCHEMA public TO drasi_user;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO drasi_user;
+```
+
+### 3) Create a publication
+
+```sql
+-- Specific tables
+CREATE PUBLICATION drasi_publication FOR TABLE public.orders, public.customers;
+
+-- Or all tables
+-- CREATE PUBLICATION drasi_publication FOR ALL TABLES;
+```
+
+### 4) (Recommended) ensure updates/deletes have enough key data
+
+For reliable UPDATE/DELETE handling, ensure tables have primary keys.
+If you’re replicating tables without primary keys, configure `tableKeys` (below).
+
+If you need old-row values for some workloads, consider:
+
+```sql
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+```
+
+## Data mapping
+
+- Each changed row becomes a Drasi graph {{< term "Node" >}}.
+- **Label**: table name (for example `orders`).
+- **Properties**: columns become node properties.
+- **Element ID**:
+  - For `public` schema tables: `table:key` (for example `orders:123`).
+  - For non-`public` schema tables: `schema.table:key` (for example `sales.orders:123`).
+
+If no key columns can be resolved for a row, the source logs a warning and falls back to a generated UUID: `table:uuid`.
+
+## Configuration reference (Drasi Server)
+
+| Field | Type | Default | Description |
+|---|---:|---:|---|
+| `kind` | string | required | Must be `postgres`. |
+| `id` | string | required | Unique source identifier. |
+| `autoStart` | boolean | `true` | Whether Drasi Server starts the source on startup. |
+| `bootstrapProvider` | object | none | Optional bootstrap provider for initial state. For PostgreSQL bootstrap, use `{ kind: postgres }`. |
+| `host` | string | `localhost` | PostgreSQL host. |
+| `port` | integer | `5432` | PostgreSQL port. |
+| `database` | string | required | Database name. |
+| `user` | string | required | Database user (must have replication permission). |
+| `password` | string | `""` | Password. |
+| `tables` | string[] | `[]` | Table list used for bootstrapping and key overrides. Streaming is controlled by the PostgreSQL publication. |
+| `slotName` | string | `drasi_slot` | Logical replication slot name (created if missing, reused if it exists). |
+| `publicationName` | string | `drasi_publication` | Publication to subscribe to. |
+| `sslMode` | string | `prefer` | SSL mode: `disable`, `prefer`, `require`. |
+| `tableKeys` | array | `[]` | Override key columns per table (see below). |
+
+Fields marked with support Drasi Server config references like `${ENV_VAR}` / `${ENV_VAR:-default}`.
+
+### tableKeys
+
+Use `tableKeys` to define key columns for element ID generation when primary keys are missing or not suitable.
 
 ```yaml
-sources:
-  - kind: postgres
-    id: ecommerce-db
-    auto_start: true
-    host: ${DB_HOST:-localhost}
-    port: ${DB_PORT:-5432}
-    database: ecommerce
-    user: ${DB_USER:-postgres}
-    password: ${DB_PASSWORD}
-    ssl_mode: prefer
-    tables:
-      - public.orders
-      - public.customers
-      - public.products
-      - public.order_items
-    slot_name: drasi_ecommerce_slot
-    publication_name: drasi_ecommerce_pub
-    table_keys:
-      - table: order_items
-        key_columns:
-          - order_id
-          - product_id
-    bootstrap_provider:
-      type: postgres
+tableKeys:
+  - table: public.order_items
+    keyColumns: [order_id, product_id]
 ```
 
-## Docker Compose Example
+Notes:
+- For tables outside the `public` schema, use `schema.table` in `tableKeys.table`.
+- Key columns are joined with `_` in the element id (for example `order_items:1001_5`).
 
-```yaml
-version: '3.8'
+## Performance tuning notes
 
-services:
-  drasi-server:
-    image: ghcr.io/drasi-project/drasi-server:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - DB_HOST=postgres
-      - DB_PASSWORD=secret
-    volumes:
-      - ./config:/config:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: myapp
-    command:
-      - "postgres"
-      - "-c"
-      - "wal_level=logical"
-      - "-c"
-      - "max_replication_slots=10"
-      - "-c"
-      - "max_wal_senders=10"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-```
+- Prefer a publication that only includes the tables you need; it reduces WAL decode and downstream processing.
+- Large transactions are buffered and dispatched together on commit; very large transactions can increase memory usage.
+- Monitor replication slot lag to avoid excessive WAL retention.
 
 ## Troubleshooting
 
-### Connection Refused
+**"logical decoding requires wal_level >= logical"**
+- Ensure `wal_level = logical` and restart PostgreSQL.
 
-- Verify PostgreSQL is running and accessible
-- Check `pg_hba.conf` allows connections from Drasi Server
-- Verify firewall rules
+**"permission denied to create replication slot"**
+- Grant replication: `ALTER USER drasi_user WITH REPLICATION;`
 
-### Replication Slot Errors
+**"MD5 authentication is not supported"**
+- Configure PostgreSQL to use `scram-sha-256` (recommended) or cleartext in `pg_hba.conf`.
 
-```sql
--- View existing slots
-SELECT * FROM pg_replication_slots;
+**No primary key / unstable element IDs**
+- Add a primary key, or configure `tableKeys` for the table.
 
--- Drop unused slot
-SELECT pg_drop_replication_slot('drasi_slot');
-```
+## Known limitations
 
-### Publication Not Found
+- TRUNCATE messages are decoded but currently **not converted** into Drasi change events.
+- If PostgreSQL does not include sufficient key data for an UPDATE, the source may not be able to treat it as a true update (ensure primary keys or set appropriate replica identity).
 
-```sql
--- Create publication
-CREATE PUBLICATION drasi_publication FOR TABLE orders, customers;
+## Documentation resources
 
--- Or for all tables
-CREATE PUBLICATION drasi_publication FOR ALL TABLES;
-```
-
-### WAL Level Not Logical
-
-```sql
--- Check current level
-SHOW wal_level;
-
--- Must restart PostgreSQL after changing
-ALTER SYSTEM SET wal_level = 'logical';
--- Then: systemctl restart postgresql
-```
-
-### Permission Denied
-
-```sql
--- Grant necessary permissions
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO drasi_user;
-GRANT USAGE ON SCHEMA public TO drasi_user;
-ALTER USER drasi_user WITH REPLICATION;
-```
-
-## Performance Considerations
-
-1. **Limit monitored tables**: Only include tables needed by queries
-2. **Use appropriate slot names**: Different applications should use different slots
-3. **Monitor replication lag**: Check `pg_stat_replication` for lag
-4. **Clean up unused slots**: Unused slots prevent WAL cleanup
-
-```sql
--- Check replication status
-SELECT * FROM pg_stat_replication;
-
--- Check slot lag
-SELECT slot_name,
-       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) as lag
-FROM pg_replication_slots;
-```
-
-## Next Steps
-
-- [Write Continuous Queries](/drasi-server/how-to-guides/write-continuous-queries/) - Query your PostgreSQL data
-- [Configure Bootstrap Providers](/drasi-server/how-to-guides/configure-bootstrap-providers/) - Load initial data
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/sources/postgres/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">PostgreSQL Source README</h3>
+        <p class="unified-card-summary">Implementation notes, prerequisites, and behavior details</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-source-postgres" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-source-postgres on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>

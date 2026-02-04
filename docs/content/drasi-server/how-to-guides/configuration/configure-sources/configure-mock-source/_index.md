@@ -3,341 +3,115 @@ type: "docs"
 title: "Configure Mock Source"
 linkTitle: "Mock"
 weight: 40
-description: "Generate test data for development and testing"
+description: "Generate synthetic node inserts for development and testing"
 related:
   concepts:
     - title: "Sources"
       url: "/concepts/sources/"
   howto:
-    - title: "Configure Reactions"
-      url: "/drasi-server/how-to-guides/configuration/configure-reactions/"
+    - title: "Configure Bootstrap Providers"
+      url: "/drasi-server/how-to-guides/configuration/configure-bootstrap-providers/"
   reference:
     - title: "Configuration Reference"
       url: "/drasi-server/reference/configuration/"
 ---
 
-The Mock {{< term "Source" >}} generates synthetic data for development and testing. It creates {{< term "Node" "nodes" >}} at configurable intervals, making it easy to test {{< term "Continuous Query" "queries" >}} and {{< term "Reaction" "reactions" >}} without connecting to real data sources.
+The Mock {{< term "Source" >}} generates synthetic data on a timer, so you can test queries and reactions without connecting to a real system.
 
-## Basic Configuration
+## When to use the Mock source
 
-```yaml
-sources:
-  - kind: mock
-    id: test-source
-    auto_start: true
-    data_type: sensor
-    interval_ms: 5000
-```
+- Developing and testing continuous queries locally.
+- Demo environments where you want predictable, infrastructure-free data generation.
+- Load/throughput testing (within reason).
 
-## Configuration Reference
+## Quick example (Drasi Server config)
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `kind` | string | Required | Must be `mock` |
-| `id` | string | Required | Unique source identifier |
-| `auto_start` | boolean | `true` | Start source automatically |
-| `data_type` | string | `generic` | Type of mock data to generate |
-| `interval_ms` | integer | `5000` | Data generation interval in milliseconds |
-
-## Data Types
-
-### Generic Data
-
-The default data type generates simple nodes:
-
-```yaml
-sources:
-  - kind: mock
-    id: generic-source
-    data_type: generic
-    interval_ms: 3000
-```
-
-Generates nodes like:
-
-```json
-{
-  "label": "Node",
-  "id": "node-1",
-  "properties": {
-    "value": 42,
-    "timestamp": "2024-01-15T10:30:00Z"
-  }
-}
-```
-
-### Sensor Data
-
-Generates IoT-style sensor readings:
-
-```yaml
-sources:
-  - kind: mock
-    id: sensor-source
-    data_type: sensor
-    interval_ms: 2000
-```
-
-Generates nodes like:
-
-```json
-{
-  "label": "Sensor",
-  "id": "sensor-1",
-  "properties": {
-    "temperature": 72.5,
-    "humidity": 45.2,
-    "timestamp": "2024-01-15T10:30:00Z"
-  }
-}
-```
-
-## Use Cases
-
-### Development Testing
-
-Quickly test queries without setting up databases:
-
-```yaml
-host: 0.0.0.0
-port: 8080
-log_level: debug
-
-sources:
-  - kind: mock
-    id: test-source
-    data_type: sensor
-    interval_ms: 1000
-
-queries:
-  - id: high-temp
-    query: |
-      MATCH (s:Sensor)
-      WHERE s.temperature > 75
-      RETURN s.id, s.temperature
-    sources:
-      - source_id: test-source
-
-reactions:
-  - kind: log
-    id: temp-alerts
-    queries: [high-temp]
-```
-
-### Reaction Testing
-
-Test reaction configurations:
-
-```yaml
-sources:
-  - kind: mock
-    id: mock-orders
-    data_type: generic
-    interval_ms: 5000
-
-reactions:
-  - kind: http
-    id: test-webhook
-    queries: [order-alerts]
-    base_url: https://webhook.site/your-id
-    routes:
-      order-alerts:
-        added:
-          url: /
-          method: POST
-          body: |
-            {"event": "new_order", "data": {{json after}}}
-```
-
-### Load Testing
-
-Generate high-frequency events for performance testing:
-
-```yaml
-sources:
-  - kind: mock
-    id: load-test
-    data_type: generic
-    interval_ms: 100  # 10 events per second
-```
-
-### Demo Environments
-
-Create reproducible demo setups:
+Drasi Server source configuration uses **camelCase** keys.
 
 ```yaml
 sources:
   - kind: mock
     id: demo-sensors
-    data_type: sensor
-    interval_ms: 3000
+    autoStart: true
 
-queries:
-  - id: all-sensors
-    query: "MATCH (s:Sensor) RETURN s"
-    sources:
-      - source_id: demo-sensors
-
-reactions:
-  - kind: sse
-    id: demo-stream
-    queries: [all-sensors]
-    port: 8081
+    # Optional
+    dataType: sensor
+    intervalMs: 1000
 ```
 
-## Generation Interval
+## Configuration reference (Drasi Server)
 
-Control how often data is generated:
+| Field | Type | Default | Description |
+|---|---:|---:|---|
+| `kind` | string | required | Must be `mock`. |
+| `id` | string | required | Unique source identifier. |
+| `autoStart` | boolean | `true` | Whether Drasi Server starts the source on startup. |
+| `bootstrapProvider` | object | none | Optional bootstrap provider for initial state (usually not needed for mock data). |
+| `dataType` | string | `generic` | Data generation mode: `counter`, `sensor`, or `generic`. |
+| `intervalMs` | integer | `5000` | Interval between generated events in milliseconds (must be `> 0`). |
 
-```yaml
-# Slow generation (every 10 seconds)
-sources:
-  - kind: mock
-    id: slow-source
-    interval_ms: 10000
+Fields support Drasi Server config references like `${ENV_VAR}` / `${ENV_VAR:-default}`.
 
-# Fast generation (every 100ms)
-sources:
-  - kind: mock
-    id: fast-source
-    interval_ms: 100
-```
+## Data types and generated nodes
 
-## Multiple Mock Sources
+The Mock source generates **insert** events for nodes.
 
-Simulate multiple data sources:
+### Counter (dataType: counter)
 
-```yaml
-sources:
-  - kind: mock
-    id: temperature-sensors
-    data_type: sensor
-    interval_ms: 2000
+- **Label**: `Counter`
+- **Element ID**: `counter_{sequence}`
+- **Properties**: `value` (sequential integer), `timestamp` (RFC3339 string)
 
-  - kind: mock
-    id: inventory-updates
-    data_type: generic
-    interval_ms: 5000
+### Sensor (dataType: sensor)
 
-  - kind: mock
-    id: user-events
-    data_type: generic
-    interval_ms: 3000
-```
+- **Label**: `SensorReading`
+- **Element ID**: `reading_{sensor_id}_{sequence}`
+- **Properties**: `sensor_id`, `temperature` (20..30), `humidity` (40..60), `timestamp`
 
-## Complete Example
+### Generic (dataType: generic) (default)
 
-A full development configuration:
+- **Label**: `Generic`
+- **Element ID**: `generic_{sequence}`
+- **Properties**: `value` (random i32), `message` ("Generic mock data"), `timestamp`
 
-```yaml
-host: 0.0.0.0
-port: 8080
-log_level: info
+## Performance tuning notes
 
-sources:
-  - kind: mock
-    id: sensors
-    auto_start: true
-    data_type: sensor
-    interval_ms: 2000
+- Decrease `intervalMs` to generate more data (higher load).
+- Use multiple mock sources with different `id`s if you want independent streams.
 
-queries:
-  - id: all-readings
-    query: |
-      MATCH (s:Sensor)
-      RETURN s.id, s.temperature, s.humidity, s.timestamp
-    sources:
-      - source_id: sensors
+## Troubleshooting
 
-  - id: hot-sensors
-    query: |
-      MATCH (s:Sensor)
-      WHERE s.temperature > 80
-      RETURN s.id, s.temperature
-    sources:
-      - source_id: sensors
+**Startup error: "Validation error: data_type '...' is not valid"**
+- `dataType` must be exactly one of: `counter`, `sensor`, `generic`.
 
-reactions:
-  - kind: log
-    id: console
-    queries: [all-readings, hot-sensors]
+**Startup error: "interval_ms cannot be 0"**
+- Set `intervalMs` to a positive integer.
 
-  - kind: sse
-    id: live-stream
-    queries: [all-readings]
-    port: 8081
-```
+## Known limitations
 
-## Watching Mock Data
+- Generates inserts only (no updates / deletes).
+- Sequence counters reset on restart; data is not persisted.
+- No relationships are generated.
 
-### View Console Output
+## Documentation resources
 
-Run the server and watch the logs:
-
-```bash
-drasi-server --config config/mock-test.yaml
-```
-
-You'll see:
-
-```
-[INFO] Mock source 'sensors' generated new data
-[INFO] Query 'all-readings' result changed: Added 1 items
-```
-
-### Query Current Results
-
-```bash
-curl http://localhost:8080/api/v1/queries/all-readings/results
-```
-
-### Connect to SSE Stream
-
-```bash
-curl http://localhost:8081/events
-```
-
-## Transitioning to Real Sources
-
-Mock sources are designed for easy replacement with real sources:
-
-### Mock Configuration
-
-```yaml
-sources:
-  - kind: mock
-    id: orders
-    data_type: generic
-    interval_ms: 5000
-```
-
-### Production Configuration
-
-```yaml
-sources:
-  - kind: postgres
-    id: orders
-    host: ${DB_HOST}
-    database: orders_db
-    tables:
-      - public.orders
-```
-
-The query configuration remains the same because the source ID (`orders`) is unchanged.
-
-## Limitations
-
-- Mock sources don't support bootstrap providers
-- Generated data is random and not persisted
-- Cannot simulate complex data relationships
-- Update and delete operations are not generated
-
-For more realistic testing, consider:
-- Using a test database with the PostgreSQL source
-- Using the HTTP source with scripted test data
-- Creating a test harness that sends events programmatically
-
-## Next Steps
-
-- [Configure PostgreSQL Source](/drasi-server/how-to-guides/configure-sources/configure-postgresql-source/) - Connect to real databases
-- [Write Continuous Queries](/drasi-server/how-to-guides/write-continuous-queries/) - Query mock data
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/sources/mock/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Mock Source README</h3>
+        <p class="unified-card-summary">Generated schemas, validation rules, and behavior details</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-source-mock" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-source-mock on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>

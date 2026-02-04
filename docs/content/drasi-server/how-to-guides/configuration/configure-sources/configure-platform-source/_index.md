@@ -3,7 +3,7 @@ type: "docs"
 title: "Configure Platform Source"
 linkTitle: "Platform"
 weight: 50
-description: "Consume events from Redis Streams for Drasi Platform integration"
+description: "Consume CloudEvent-wrapped change events from Redis Streams"
 related:
   concepts:
     - title: "Sources"
@@ -18,365 +18,164 @@ related:
       url: "/drasi-server/reference/configuration/"
 ---
 
-The Platform {{< term "Source" >}} consumes events from Redis Streams, enabling integration with {{< term "Drasi for Kubernetes" >}} or other systems that publish to Redis Streams.
+The Platform {{< term "Source" >}} consumes **CloudEvent-wrapped** change events from a **Redis Stream** and converts them into Drasi graph changes.
 
-## Basic Configuration
+## When to use the Platform source
+
+- Connect Drasi Server to a Drasi Platform / Kubernetes environment that publishes changes to Redis Streams.
+- Consume change events from a shared Redis-backed event bus.
+- Scale ingestion horizontally using Redis **consumer groups**.
+
+## Prerequisites
+
+- Redis **5.0+** (Streams + consumer groups).
+- A publisher that writes CloudEvent JSON into the stream (see [Event format](#event-format)).
+
+## How it connects
+
+This source **connects outbound** from Drasi Server to Redis; it does not open an inbound port.
+
+## Quick example (Drasi Server config)
+
+Drasi Server source configuration uses **camelCase** keys.
 
 ```yaml
 sources:
   - kind: platform
     id: platform-events
-    auto_start: true
-    redis_url: redis://localhost:6379
-    stream_key: my-events
-    consumer_group: drasi-server
+    autoStart: true
+
+    redisUrl: ${REDIS_URL:-redis://localhost:6379}
+    streamKey: drasi-events
+
+    # Optional
+    consumerGroup: drasi-core
+    consumerName: ${HOSTNAME}
+    batchSize: 100
+    blockMs: 5000
 ```
 
-## Configuration Reference
+## Configuration reference (Drasi Server)
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `kind` | string | Required | Must be `platform` |
-| `id` | string | Required | Unique source identifier |
-| `auto_start` | boolean | `true` | Start source automatically |
-| `redis_url` | string | Required | Redis connection URL |
-| `stream_key` | string | Required | Redis stream key to consume |
-| `consumer_group` | string | `drasi-core` | Consumer group name |
-| `consumer_name` | string | Auto-generated | Consumer name within group |
-| `batch_size` | integer | `100` | Events to read per batch |
-| `block_ms` | integer | `5000` | Block timeout in milliseconds |
+|---|---:|---:|---|
+| `kind` | string | required | Must be `platform`. |
+| `id` | string | required | Unique source identifier. |
+| `autoStart` | boolean | `true` | Whether Drasi Server starts the source on startup. |
+| `bootstrapProvider` | object | none | Optional bootstrap provider for initial state. For platform bootstrap use `{ kind: platform, queryApiUrl?, timeoutSeconds? }`. |
+| `redisUrl` | string | required | Redis connection URL (for example `redis://host:6379`). |
+| `streamKey` | string | required | Redis stream key to consume events from. |
+| `consumerGroup` | string | `drasi-core` | Consumer group name. |
+| `consumerName` | string | auto | Consumer name within the group (should be unique). |
+| `batchSize` | integer | `100` | Max events to read per Redis `XREADGROUP` call. |
+| `blockMs` | integer | `5000` | Milliseconds to block waiting for new events. |
 
-## Redis Connection URL
+Fields support Drasi Server config references like `${ENV_VAR}` / `${ENV_VAR:-default}`.
 
-The Redis URL supports various connection formats:
+## Event format
 
-```yaml
-# Local Redis
-redis_url: redis://localhost:6379
+The Platform source expects a **CloudEvent JSON object** whose `data` field is an array of change events.
 
-# With password
-redis_url: redis://:password@localhost:6379
-
-# With username and password
-redis_url: redis://user:password@localhost:6379
-
-# With database selection
-redis_url: redis://localhost:6379/1
-
-# TLS connection
-redis_url: rediss://localhost:6379
-```
-
-## Consumer Groups
-
-Consumer groups enable multiple Drasi Server instances to share stream processing:
-
-```yaml
-sources:
-  - kind: platform
-    id: events
-    redis_url: redis://localhost:6379
-    stream_key: drasi-events
-    consumer_group: drasi-processors
-    consumer_name: server-1
-```
-
-### Multiple Consumers
-
-For horizontal scaling:
-
-```yaml
-# Server 1
-sources:
-  - kind: platform
-    id: events
-    redis_url: redis://localhost:6379
-    stream_key: drasi-events
-    consumer_group: drasi-cluster
-    consumer_name: server-1
-
-# Server 2
-sources:
-  - kind: platform
-    id: events
-    redis_url: redis://localhost:6379
-    stream_key: drasi-events
-    consumer_group: drasi-cluster
-    consumer_name: server-2
-```
-
-## Batch Processing
-
-Control how events are read from the stream:
-
-```yaml
-sources:
-  - kind: platform
-    id: high-volume-events
-    redis_url: redis://localhost:6379
-    stream_key: events
-    batch_size: 500      # Read up to 500 events per batch
-    block_ms: 10000      # Wait up to 10 seconds for new events
-```
-
-| Setting | Low Volume | High Volume |
-|---------|------------|-------------|
-| `batch_size` | 10-50 | 100-1000 |
-| `block_ms` | 5000-10000 | 1000-5000 |
-
-## Event Format
-
-Events in the Redis Stream should follow this structure:
+### CloudEvent wrapper (minimal)
 
 ```json
 {
-  "op": "insert",
-  "label": "Order",
-  "id": "order-123",
-  "properties": {
-    "customer_id": "cust-456",
-    "total": 99.99
+  "specversion": "1.0",
+  "type": "drasi.change",
+  "source": "my-producer",
+  "id": "event-123",
+  "time": "2025-01-01T00:00:00Z",
+  "datacontenttype": "application/json",
+  "data": [
+    {
+      "op": "i",
+      "payload": {
+        "after": {
+          "id": "user-123",
+          "labels": ["User"],
+          "properties": {"name": "Alice"}
+        },
+        "source": {"db": "myapp", "table": "node", "ts_ns": 1704067200000000000}
+      }
+    }
+  ]
+}
+```
+
+### Change events (`data[]`)
+
+Each `data[]` entry has:
+
+- `op`: operation (`"i"` = insert, `"u"` = update, `"d"` = delete)
+- `payload.after` for `i`/`u`, `payload.before` for `d`
+- `payload.source.table`: element type (`"node"` or `"rel"`/`"relation"`)
+- `payload.source.ts_ns`: timestamp in **nanoseconds** (required)
+
+Drasi converts `ts_ns` to element `effectiveFrom` in **milliseconds**: `effectiveFrom = ts_ns / 1_000_000`.
+
+### Relation example
+
+```json
+{
+  "op": "i",
+  "payload": {
+    "after": {
+      "id": "follows-1",
+      "labels": ["FOLLOWS"],
+      "startId": "user-123",
+      "endId": "user-456",
+      "properties": {"since": "2024-01-01"}
+    },
+    "source": {"db": "myapp", "table": "rel", "ts_ns": 1704067200000000000}
   }
 }
 ```
 
-### Publishing Events to Redis
+### Publishing to Redis Streams
 
-Using `redis-cli`:
-
-```bash
-redis-cli XADD my-events '*' data '{"op":"insert","label":"Order","id":"order-1","properties":{"total":100}}'
-```
-
-Using Python:
-
-```python
-import redis
-import json
-
-r = redis.Redis(host='localhost', port=6379)
-
-event = {
-    "op": "insert",
-    "label": "Order",
-    "id": "order-123",
-    "properties": {
-        "customer_id": "cust-456",
-        "total": 99.99
-    }
-}
-
-r.xadd('my-events', {'data': json.dumps(event)})
-```
-
-## Bootstrap Provider
-
-Load initial data from a remote Drasi API:
-
-```yaml
-sources:
-  - kind: platform
-    id: platform-events
-    redis_url: redis://localhost:6379
-    stream_key: events
-    bootstrap_provider:
-      type: platform
-      query_api_url: http://remote-drasi:8080
-      timeout_seconds: 300
-```
-
-## Use Cases
-
-### Drasi Platform Integration
-
-Connect Drasi Server to the Drasi Platform:
-
-```yaml
-sources:
-  - kind: platform
-    id: platform-source
-    redis_url: ${REDIS_URL}
-    stream_key: drasi-query-results
-    consumer_group: drasi-server
-```
-
-### Event Bus Integration
-
-Use Redis Streams as an event bus:
-
-```yaml
-sources:
-  - kind: platform
-    id: order-events
-    redis_url: redis://redis:6379
-    stream_key: orders
-    consumer_group: drasi-orders
-
-  - kind: platform
-    id: inventory-events
-    redis_url: redis://redis:6379
-    stream_key: inventory
-    consumer_group: drasi-inventory
-```
-
-### Cross-Region Replication
-
-Consume events from a replicated Redis stream:
-
-```yaml
-sources:
-  - kind: platform
-    id: replicated-events
-    redis_url: rediss://replica.region.redis.cloud:6379
-    stream_key: global-events
-    consumer_group: region-us-east
-```
-
-## Docker Compose Setup
-
-```yaml
-version: '3.8'
-
-services:
-  drasi-server:
-    image: ghcr.io/drasi-project/drasi-server:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - REDIS_URL=redis://redis:6379
-    volumes:
-      - ./config:/config:ro
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-
-volumes:
-  redis-data:
-```
-
-## Complete Example
-
-```yaml
-host: 0.0.0.0
-port: 8080
-log_level: info
-
-sources:
-  - kind: platform
-    id: event-stream
-    auto_start: true
-    redis_url: ${REDIS_URL:-redis://localhost:6379}
-    stream_key: application-events
-    consumer_group: drasi-server
-    batch_size: 100
-    block_ms: 5000
-
-queries:
-  - id: all-events
-    query: "MATCH (n) RETURN n.id, labels(n)[0] as type"
-    sources:
-      - source_id: event-stream
-
-reactions:
-  - kind: log
-    id: event-log
-    queries: [all-events]
-```
-
-## Monitoring
-
-### Check Stream Info
+Write the CloudEvent JSON as a **string** in a stream entry field named `data` (preferred). The source also checks `event`, `payload`, and `message`.
 
 ```bash
-redis-cli XINFO STREAM my-events
+redis-cli XADD drasi-events '*' data '{"specversion":"1.0","data":[{"op":"i","payload":{"after":{"id":"user-1","labels":["User"],"properties":{"name":"Alice"}},"source":{"db":"myapp","table":"node","ts_ns":1704067200000000000}}}]}'
 ```
 
-### Check Consumer Groups
+## Performance tuning notes
 
-```bash
-redis-cli XINFO GROUPS my-events
-```
-
-### Check Pending Messages
-
-```bash
-redis-cli XPENDING my-events drasi-server
-```
+- Increase `batchSize` for higher throughput.
+- Decrease `blockMs` for lower-latency shutdown and quicker detection of new events (at the cost of more Redis calls).
+- Run multiple Drasi Server instances with the same `consumerGroup` (and unique `consumerName`) to scale consumption.
 
 ## Troubleshooting
 
-### Connection Failed
+**No events are being processed**
+- Confirm you are writing a CloudEvent JSON object (must include a `data` array).
+- Ensure your stream entry field is `data` (or `event` / `payload` / `message`).
+- Verify `payload.source.ts_ns` is present and is an integer (nanoseconds).
 
-- Verify Redis is running and accessible
-- Check the Redis URL format
-- Verify network connectivity and firewall rules
+## Known limitations
 
-### Consumer Group Errors
+- The source rejects messages that do not match the expected CloudEvent + `data[]` shape.
+- Control messages are identified by `payload.source.db = "Drasi"` (case-insensitive); only `payload.source.table = "SourceSubscription"` is handled.
 
-Create the consumer group if it doesn't exist:
+## Documentation resources
 
-```bash
-redis-cli XGROUP CREATE my-events drasi-server $ MKSTREAM
-```
-
-### Message Backlog
-
-If messages are accumulating:
-
-1. Check consumer status: `XINFO CONSUMERS stream-key group-name`
-2. Increase `batch_size`
-3. Add more consumers
-4. Check for processing errors in logs
-
-### Memory Issues
-
-Redis Streams can grow large. Set a maximum length:
-
-```bash
-# Trim stream to approximately 10000 entries
-redis-cli XTRIM my-events MAXLEN ~ 10000
-```
-
-Or configure automatic trimming when adding:
-
-```bash
-redis-cli XADD my-events MAXLEN ~ 10000 '*' data '...'
-```
-
-## Performance Tuning
-
-### High Throughput
-
-```yaml
-sources:
-  - kind: platform
-    id: high-throughput
-    redis_url: redis://localhost:6379
-    stream_key: events
-    batch_size: 1000
-    block_ms: 1000
-```
-
-### Low Latency
-
-```yaml
-sources:
-  - kind: platform
-    id: low-latency
-    redis_url: redis://localhost:6379
-    stream_key: events
-    batch_size: 10
-    block_ms: 100
-```
-
-## Next Steps
-
-- [Configure Platform Reaction](/drasi-server/how-to-guides/configure-reactions/configure-platform-reaction/) - Publish to Redis Streams
-- [Write Continuous Queries](/drasi-server/how-to-guides/write-continuous-queries/) - Query platform events
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/sources/platform/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Platform Source README</h3>
+        <p class="unified-card-summary">Implementation notes, Redis behavior, and full schema details</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-source-platform" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-source-platform on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>

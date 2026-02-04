@@ -3,12 +3,14 @@ type: "docs"
 title: "Configure gRPC Source"
 linkTitle: "gRPC"
 weight: 30
-description: "Receive events via gRPC streaming"
+description: "Receive change events via gRPC"
 related:
   concepts:
     - title: "Sources"
       url: "/concepts/sources/"
   howto:
+    - title: "Configure Bootstrap Providers"
+      url: "/drasi-server/how-to-guides/configuration/configure-bootstrap-providers/"
     - title: "Configure gRPC Reaction"
       url: "/drasi-server/how-to-guides/configuration/configure-reactions/configure-grpc-reaction/"
   reference:
@@ -16,313 +18,177 @@ related:
       url: "/drasi-server/reference/configuration/"
 ---
 
-The gRPC {{< term "Source" >}} creates a gRPC endpoint that receives streaming events. It's ideal for high-performance, low-latency event streaming from applications that support gRPC.
+The gRPC {{< term "Source" >}} exposes a gRPC server endpoint that external applications can use to **push change events** (insert/update/delete) into {{< term "Drasi Server" >}}.
 
-## Basic Configuration
+It’s a good fit when you already have gRPC in your stack and want a **typed, high-throughput** ingestion path.
+
+## When to use the gRPC source
+
+- Ingest high-volume change events from services that already communicate over gRPC.
+- Stream telemetry / IoT readings into Drasi with low per-event overhead.
+- Feed Drasi from a CDC pipeline that can emit protobuf messages.
+- Build a language-agnostic integration using generated gRPC client stubs.
+
+## Prerequisites
+
+- Your producer application can connect to the gRPC endpoint (`host:port`) over the network.
+- A gRPC client implementation for your language (generated from the protobuf schema).
+
+{{< alert title="Plaintext gRPC" color="warning" >}}
+The current gRPC source implementation in Drasi Core does not expose server-side TLS configuration. Plan to run it on a trusted network or behind a TLS-terminating proxy.
+{{< /alert >}}
+
+## Quick example (Drasi Server config)
+
+Drasi Server source configuration uses **camelCase** keys.
 
 ```yaml
 sources:
   - kind: grpc
     id: grpc-events
-    auto_start: true
+    autoStart: true
+
     host: 0.0.0.0
     port: 50051
-    timeout_ms: 5000
+
+    # Optional
+    endpoint: null
+    timeoutMs: 5000
 ```
 
-## Configuration Reference
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `kind` | string | Required | Must be `grpc` |
-| `id` | string | Required | Unique source identifier |
-| `auto_start` | boolean | `true` | Start source automatically |
-| `host` | string | `0.0.0.0` | Listen address |
-| `port` | integer | `50051` | Listen port |
-| `endpoint` | string | Auto-generated | Custom endpoint path |
-| `timeout_ms` | integer | `5000` | Connection timeout in milliseconds |
-
-## gRPC Service Definition
-
-The gRPC source implements a streaming service. Clients connect and stream events to Drasi Server.
-
-### Protocol Buffer Definition
-
-```protobuf
-syntax = "proto3";
-
-package drasi;
-
-service EventSource {
-  rpc StreamEvents(stream Event) returns (stream Ack);
-}
-
-message Event {
-  string op = 1;          // "insert", "update", "delete"
-  string label = 2;       // Node label
-  string id = 3;          // Node ID
-  map<string, Value> properties = 4;
-}
-
-message Value {
-  oneof kind {
-    string string_value = 1;
-    int64 int_value = 2;
-    double double_value = 3;
-    bool bool_value = 4;
-  }
-}
-
-message Ack {
-  bool success = 1;
-  string message = 2;
-}
-```
-
-## Event Format
-
-Events sent via gRPC follow the same structure as HTTP events:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `op` | string | Operation: `insert`, `update`, `delete` |
-| `label` | string | Node label |
-| `id` | string | Node identifier |
-| `properties` | map | Node properties |
-
-## Use Cases
-
-### High-Throughput Event Streaming
-
-gRPC is ideal for high-volume event streams:
+If you run Drasi Server in Docker, remember to publish the gRPC port:
 
 ```yaml
-sources:
-  - kind: grpc
-    id: telemetry-stream
-    host: 0.0.0.0
-    port: 50051
-    timeout_ms: 30000
-```
-
-### Microservice Integration
-
-Connect microservices that already use gRPC:
-
-```yaml
-sources:
-  - kind: grpc
-    id: order-service
-    host: 0.0.0.0
-    port: 50052
-
-  - kind: grpc
-    id: inventory-service
-    host: 0.0.0.0
-    port: 50053
-```
-
-### IoT Device Data
-
-Stream data from IoT gateways:
-
-```yaml
-sources:
-  - kind: grpc
-    id: iot-gateway
-    host: 0.0.0.0
-    port: 50051
-    timeout_ms: 10000
-```
-
-## Docker Configuration
-
-When running in Docker, map the gRPC ports:
-
-```yaml
-# docker-compose.yml
+# docker-compose.yml (snippet)
 services:
   drasi-server:
     image: ghcr.io/drasi-project/drasi-server:latest
     ports:
-      - "8080:8080"     # REST API
+      - "8080:8080"     # Drasi Server REST API
       - "50051:50051"   # gRPC source
 ```
 
-## Complete Example
+## Connecting and sending events
 
-```yaml
-host: 0.0.0.0
-port: 8080
-log_level: info
+The gRPC source implements the `drasi.v1.SourceService` service from the Drasi Core gRPC source plugin.
 
-sources:
-  - kind: grpc
-    id: event-stream
-    auto_start: true
-    host: 0.0.0.0
-    port: 50051
-    timeout_ms: 5000
+### Service methods
 
-queries:
-  - id: all-events
-    query: "MATCH (n) RETURN n.id, labels(n)[0] as type"
-    sources:
-      - source_id: event-stream
+- `SubmitEvent` (unary): submit a single change event.
+- `StreamEvents` (streaming): stream many change events; the server periodically replies with progress.
+- `HealthCheck` (unary): basic health status.
+- `RequestBootstrap` (server streaming): currently returns an empty stream (placeholder).
 
-reactions:
-  - kind: log
-    id: event-log
-    queries: [all-events]
-```
+### Event schema (protobuf)
 
-## Client Implementation Example
+Change events are represented by `drasi.v1.SourceChange`.
 
-### Go Client
+- For **insert/update** operations, send an `Element` (either a `Node` or `Relation`).
+- For **delete** operations, send `ElementMetadata` (so Drasi can identify what to remove).
 
-```go
-package main
+Key types (simplified):
 
-import (
-    "context"
-    "log"
+```protobuf
+// drasi/v1/common.proto
+message SourceChange {
+  ChangeType type = 1;                 // INSERT, UPDATE, DELETE
+  oneof change {
+    Element element = 2;               // insert/update
+    ElementMetadata metadata = 3;      // delete
+  }
+  google.protobuf.Timestamp timestamp = 4;
+  string source_id = 5;
+}
 
-    pb "your-project/drasi"
-    "google.golang.org/grpc"
-)
+message ElementMetadata {
+  ElementReference reference = 1;
+  repeated string labels = 2;
+  uint64 effective_from = 3;           // nanoseconds since Unix epoch
+}
 
-func main() {
-    conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
-    if err != nil {
-        log.Fatalf("Failed to connect: %v", err)
-    }
-    defer conn.Close()
-
-    client := pb.NewEventSourceClient(conn)
-    stream, err := client.StreamEvents(context.Background())
-    if err != nil {
-        log.Fatalf("Failed to create stream: %v", err)
-    }
-
-    // Send event
-    event := &pb.Event{
-        Op:    "insert",
-        Label: "Sensor",
-        Id:    "sensor-1",
-        Properties: map[string]*pb.Value{
-            "temperature": {Kind: &pb.Value_DoubleValue{DoubleValue: 72.5}},
-        },
-    }
-
-    if err := stream.Send(event); err != nil {
-        log.Fatalf("Failed to send: %v", err)
-    }
-
-    // Receive acknowledgment
-    ack, err := stream.Recv()
-    if err != nil {
-        log.Fatalf("Failed to receive: %v", err)
-    }
-    log.Printf("Ack: %v", ack)
+message ElementReference {
+  string source_id = 1;
+  string element_id = 2;
 }
 ```
 
-### Python Client
+{{< alert title="Timestamps" color="info" >}}
+`effective_from` is **nanoseconds**. The gRPC source converts it to milliseconds internally.
+{{< /alert >}}
 
-```python
-import grpc
-import drasi_pb2
-import drasi_pb2_grpc
+### Quick smoke test with grpcurl
 
-def stream_events():
-    channel = grpc.insecure_channel('localhost:50051')
-    stub = drasi_pb2_grpc.EventSourceStub(channel)
+List services:
 
-    def event_generator():
-        event = drasi_pb2.Event(
-            op="insert",
-            label="Sensor",
-            id="sensor-1",
-            properties={
-                "temperature": drasi_pb2.Value(double_value=72.5)
-            }
-        )
-        yield event
-
-    responses = stub.StreamEvents(event_generator())
-    for ack in responses:
-        print(f"Ack: {ack}")
-
-if __name__ == '__main__':
-    stream_events()
+```bash
+grpcurl -plaintext localhost:50051 list
 ```
 
-## Performance Tuning
+Health check:
 
-### Connection Timeout
-
-Adjust timeout for slow connections:
-
-```yaml
-sources:
-  - kind: grpc
-    id: remote-source
-    host: 0.0.0.0
-    port: 50051
-    timeout_ms: 30000  # 30 seconds
+```bash
+grpcurl -plaintext localhost:50051 drasi.v1.SourceService/HealthCheck
 ```
 
-### Multiple gRPC Sources
+For complete client examples (Python/Go) and full request payloads, see the plugin README linked below.
 
-Run multiple sources for different event types:
+## Configuration reference (Drasi Server)
 
-```yaml
-sources:
-  - kind: grpc
-    id: orders-stream
-    port: 50051
+| Field | Type | Default | Description |
+|---|---:|---:|---|
+| `kind` | string | required | Must be `grpc`. |
+| `id` | string | required | Unique source identifier. |
+| `autoStart` | boolean | `true` | Whether Drasi Server starts the source on startup. |
+| `host` | string | `0.0.0.0` | Address to bind the gRPC server to. |
+| `port` | integer | `50051` | Port to listen on. |
+| `endpoint` | string | none | Reserved for future use. (Currently not used to change routing.) |
+| `timeoutMs` | integer | `5000` | Reserved for future use. (Currently not enforced by the plugin implementation.) |
+| `bootstrapProvider` | object | none | Optional bootstrap provider to preload initial state. See [Configure Bootstrap Providers](/drasi-server/how-to-guides/configuration/configure-bootstrap-providers/). |
 
-  - kind: grpc
-    id: inventory-stream
-    port: 50052
+## Performance tuning notes
 
-  - kind: grpc
-    id: analytics-stream
-    port: 50053
-```
+- Prefer `StreamEvents` for high-throughput ingestion; it avoids per-RPC overhead.
+- Reuse a single gRPC channel from your producer instead of reconnecting per event.
+- If you need isolation by producer, run multiple gRPC sources on different ports (distinct `id`s).
 
 ## Troubleshooting
 
-### Connection Timeout
+**Connection refused**
+- Ensure the source is started (`autoStart: true` or started via the server API).
+- Verify Docker port publishing and firewall rules.
 
-- Increase `timeout_ms` value
-- Check network connectivity
-- Verify no firewall blocking the port
+**HealthCheck fails**
+- Confirm you are using `-plaintext` (no TLS) when testing with `grpcurl`.
 
-### Stream Disconnects
+**“Invalid event data” responses**
+- Ensure you are sending `SourceChange` with the correct `type` and matching `change` field.
+- For delete operations, include `metadata.reference.element_id` and `metadata.labels`.
 
-- Implement reconnection logic in client
-- Check server logs for errors
-- Monitor resource usage
+## Known limitations
 
-### Performance Issues
+- No server-side TLS configuration (plaintext gRPC).
+- `RequestBootstrap` currently returns an empty stream.
+- `endpoint` and `timeoutMs` are accepted by Drasi Server configuration but are currently not enforced/used by the plugin implementation.
 
-- Consider batching events on the client side
-- Monitor gRPC stream backpressure
-- Adjust timeout values appropriately
+## Documentation resources
 
-## gRPC vs HTTP
-
-| Aspect | gRPC | HTTP |
-|--------|------|------|
-| **Performance** | Higher throughput | Lower throughput |
-| **Latency** | Lower | Higher |
-| **Protocol** | HTTP/2 | HTTP/1.1 |
-| **Streaming** | Native bidirectional | One-way |
-| **Integration** | Requires gRPC client | Any HTTP client |
-| **Best for** | High-volume, real-time | Webhooks, simple integrations |
-
-## Next Steps
-
-- [Write Continuous Queries](/drasi-server/how-to-guides/write-continuous-queries/) - Query gRPC events
-- [Configure HTTP Source](/drasi-server/how-to-guides/configure-sources/configure-http-source/) - Alternative for HTTP events
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/sources/grpc/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">gRPC Source README</h3>
+        <p class="unified-card-summary">Protocol details, full protobuf schema, and client examples</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-source-grpc" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-source-grpc on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>

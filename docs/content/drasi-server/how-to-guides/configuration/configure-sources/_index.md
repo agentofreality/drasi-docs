@@ -9,7 +9,18 @@ hide_readingtime: true
 description: "Connect Drasi Server to databases, APIs, and data streams"
 ---
 
-{{< term "Source" "Sources" >}} connect {{< term "Drasi Server" >}} to your data systems and stream changes to {{< term "Continuous Query" "queries" >}}. Drasi Server supports several source types for different data systems and use cases.
+{{< term "Source" "Sources" >}} connect {{< term "Drasi Server" >}} to your data systems and stream changes to {{< term "Continuous Query" "queries" >}}.
+
+Drasi Server currently supports these source kinds:
+- `postgres`
+- `http`
+- `grpc`
+- `platform`
+- `mock`
+
+{{< alert title="Configuration keys are camelCase" color="warning" >}}
+Source configuration is parsed with strict **camelCase** keys (for example: `autoStart`, `bootstrapProvider`, `timeoutMs`). Unknown keys are rejected.
+{{< /alert >}}
 
 <div class="card-grid">
   <a href="configure-postgresql-source/">
