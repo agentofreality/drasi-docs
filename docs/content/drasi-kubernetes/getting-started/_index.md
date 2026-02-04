@@ -450,7 +450,7 @@ http://hello-world-debug.drasi.127.0.0.1.nip.io:8080
 
 In addition to accessing the Debug Reaction via ingress, you can also port-forward the Debug Reaction service to your local machine. Run the following command in a terminal window:
 ```bash
-kubectl port-forward services/hello-world-debug-gateway 8080:8080 -n drasi-system
+drasi tunnel reaction hello-world-debug 8080
 ```
 Now open your browser and navigate to [http://localhost:8080](http://localhost:8080), where you will see the Debug Reaction UI shown here:
 {{< figure src="debug-reaction-ui.png" alt="Debug Reaction UI" width="70%" >}}
@@ -549,7 +549,7 @@ Finally, if you return to the `message-count` Continuous Query and delete both "
 DELETE FROM public."Message" WHERE "Message" = 'Hello World';
 ```
 
-The Debug Reaction updates to show that there are no messages with the text "Hello World":
+The Debug Reaction updates the UI to show a zero count for messages with the text "Hello World":
 
 {{< figure src="message-count-debug-deleted.png" alt="Message Count" width="70%" >}}
 
