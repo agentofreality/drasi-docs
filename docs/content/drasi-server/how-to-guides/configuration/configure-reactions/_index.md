@@ -39,7 +39,7 @@ description: "Set up actions triggered by data changes"
       </div>
     </div>
   </a>
-  <a href="configure-platform-reaction/">
+  <!-- <a href="configure-platform-reaction/">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-stream"></i></div>
       <div class="unified-card-content">
@@ -47,7 +47,7 @@ description: "Set up actions triggered by data changes"
         <p class="unified-card-summary">Publish to Redis Streams</p>
       </div>
     </div>
-  </a>
+  </a> -->
   <a href="configure-profiler-reaction/">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-chart-line"></i></div>

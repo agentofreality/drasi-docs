@@ -4,6 +4,7 @@ title: "Configure Platform Reaction"
 linkTitle: "Platform"
 weight: 40
 description: "Publish query results to Redis Streams"
+toc_hide: true
 related:
   concepts:
     - title: "Reactions"
