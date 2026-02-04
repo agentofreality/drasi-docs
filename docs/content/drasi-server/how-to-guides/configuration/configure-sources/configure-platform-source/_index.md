@@ -4,6 +4,7 @@ title: "Configure Platform Source"
 linkTitle: "Platform"
 weight: 40
 description: "Consume CloudEvent-wrapped change events from Redis Streams"
+toc_hide: true
 related:
   concepts:
     - title: "Sources"

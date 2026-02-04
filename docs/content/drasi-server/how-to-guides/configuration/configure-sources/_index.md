@@ -39,7 +39,7 @@ description: "Connect Drasi Server to databases, APIs, and data streams"
       </div>
     </div>
   </a>
-  <a href="configure-platform-source/">
+  <!-- <a href="configure-platform-source/">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-stream"></i></div>
       <div class="unified-card-content">
@@ -47,7 +47,7 @@ description: "Connect Drasi Server to databases, APIs, and data streams"
         <p class="unified-card-summary">Consume from Redis Streams for Drasi Platform integration</p>
       </div>
     </div>
-  </a>
+  </a> -->
   <a href="configure-postgresql-source/">
     <div class="unified-card unified-card--howto">
       <div class="unified-card-icon"><i class="fas fa-database"></i></div>

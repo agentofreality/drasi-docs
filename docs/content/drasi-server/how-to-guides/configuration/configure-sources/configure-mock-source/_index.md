@@ -56,19 +56,25 @@ Fields support Drasi Server config references like `${ENV_VAR}` / `${ENV_VAR:-de
 
 The Mock source generates **insert** events for nodes.
 
-### Counter (dataType: counter)
+### Counter
+
+Set `dataType` to `counter`.
 
 - **Label**: `Counter`
 - **Element ID**: `counter_{sequence}`
 - **Properties**: `value` (sequential integer), `timestamp` (RFC3339 string)
 
-### Sensor (dataType: sensor)
+### Sensor
+
+Set `dataType` to `sensor`.
 
 - **Label**: `SensorReading`
 - **Element ID**: `reading_{sensor_id}_{sequence}`
 - **Properties**: `sensor_id`, `temperature` (20..30), `humidity` (40..60), `timestamp`
 
-### Generic (dataType: generic) (default)
+### Generic
+
+Set `dataType` to `generic` (default).
 
 - **Label**: `Generic`
 - **Element ID**: `generic_{sequence}`
