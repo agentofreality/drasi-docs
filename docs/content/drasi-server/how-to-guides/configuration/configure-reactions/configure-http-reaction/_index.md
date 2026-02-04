@@ -27,7 +27,7 @@ reactions:
   - kind: http
     id: webhook
     queries: [my-query]
-    base_url: https://api.example.com
+    baseUrl: https://api.example.com
     routes:
       my-query:
         added:
@@ -42,10 +42,10 @@ reactions:
 | `kind` | string | Required | Must be `http` |
 | `id` | string | Required | Unique reaction identifier |
 | `queries` | array | Required | Query IDs to subscribe to |
-| `auto_start` | boolean | `true` | Start reaction automatically |
-| `base_url` | string | `http://localhost` | Base URL for requests |
+| `autoStart` | boolean | `true` | Start reaction automatically |
+| `baseUrl` | string | `http://localhost` | Base URL for requests |
 | `token` | string | None | Bearer token for authorization |
-| `timeout_ms` | integer | `5000` | Request timeout in milliseconds |
+| `timeoutMs` | integer | `5000` | Request timeout in milliseconds |
 | `routes` | object | `{}` | Per-query endpoint configurations |
 
 ## Route Configuration
@@ -62,10 +62,10 @@ Each query can have routes for different change types:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `url` | string | Yes | Path to append to base_url |
-| `method` | string | Yes | HTTP method (GET, POST, PUT, DELETE, etc.) |
-| `body` | string | No | Request body (supports templates) |
-| `headers` | object | No | Custom HTTP headers |
+| `url` | string | Yes | Path to append to `baseUrl` (or an absolute `http(s)://...` URL) |
+| `method` | string | Yes | HTTP method (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`) |
+| `body` | string | No | Request body (supports templates). If empty, the plugin sends the raw JSON data for that change. |
+| `headers` | object | No | Custom HTTP headers (values also support templates) |
 
 ## Handlebars Templates
 
@@ -104,7 +104,7 @@ reactions:
   - kind: http
     id: api-webhook
     queries: [events]
-    base_url: https://api.example.com
+    baseUrl: https://api.example.com
     token: ${API_TOKEN}
 ```
 
@@ -117,7 +117,7 @@ reactions:
   - kind: http
     id: custom-auth
     queries: [events]
-    base_url: https://api.example.com
+    baseUrl: https://api.example.com
     routes:
       events:
         added:
@@ -138,7 +138,7 @@ reactions:
   - kind: http
     id: simple-webhook
     queries: [orders]
-    base_url: https://hooks.example.com
+    baseUrl: https://hooks.example.com
     routes:
       orders:
         added:
@@ -158,7 +158,7 @@ reactions:
   - kind: http
     id: github-issues
     queries: [critical-alerts]
-    base_url: https://api.github.com
+    baseUrl: https://api.github.com
     token: ${GITHUB_TOKEN}
     routes:
       critical-alerts:
@@ -182,7 +182,7 @@ reactions:
   - kind: http
     id: slack-alerts
     queries: [important-events]
-    base_url: https://hooks.slack.com
+    baseUrl: https://hooks.slack.com
     routes:
       important-events:
         added:
@@ -212,9 +212,9 @@ reactions:
   - kind: http
     id: sync-api
     queries: [products]
-    base_url: https://inventory.example.com/api
+    baseUrl: https://inventory.example.com/api
     token: ${API_TOKEN}
-    timeout_ms: 10000
+    timeoutMs: 10000
     routes:
       products:
         added:
@@ -241,7 +241,7 @@ reactions:
   - kind: http
     id: event-hub
     queries: [orders, inventory, customers]
-    base_url: https://events.example.com
+    baseUrl: https://events.example.com
     token: ${EVENT_HUB_TOKEN}
     routes:
       orders:
@@ -265,37 +265,6 @@ reactions:
           body: '{"customer": {{json after}}}'
 ```
 
-## HTTP Adaptive Reaction
-
-For high-throughput scenarios, use the adaptive variant:
-
-```yaml
-reactions:
-  - kind: http-adaptive
-    id: high-volume-webhook
-    queries: [events]
-    base_url: https://api.example.com
-    timeout_ms: 5000
-    adaptive_min_batch_size: 1
-    adaptive_max_batch_size: 1000
-    adaptive_window_size: 100
-    adaptive_batch_timeout_ms: 1000
-    routes:
-      events:
-        added:
-          url: /bulk-events
-          method: POST
-```
-
-### Adaptive Configuration
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `adaptive_min_batch_size` | integer | `1` | Minimum events per batch |
-| `adaptive_max_batch_size` | integer | `1000` | Maximum events per batch |
-| `adaptive_window_size` | integer | `100` | Window for adaptive calculations |
-| `adaptive_batch_timeout_ms` | integer | `1000` | Max wait time for batch |
-
 ## Timeout Configuration
 
 ```yaml
@@ -303,8 +272,8 @@ reactions:
   - kind: http
     id: slow-api
     queries: [events]
-    base_url: https://slow-api.example.com
-    timeout_ms: 30000  # 30 seconds
+    baseUrl: https://slow-api.example.com
+    timeoutMs: 30000
 ```
 
 ## Error Handling
@@ -318,7 +287,7 @@ HTTP reactions log errors but continue processing. Monitor logs for:
 Enable debug logging for troubleshooting:
 
 ```yaml
-log_level: debug
+logLevel: debug
 ```
 
 ## Testing
@@ -336,7 +305,7 @@ reactions:
   - kind: http
     id: test-webhook
     queries: [my-query]
-    base_url: https://webhook.site
+    baseUrl: https://webhook.site
     routes:
       my-query:
         added:
@@ -362,7 +331,7 @@ reactions:
   - kind: http
     id: local-test
     queries: [my-query]
-    base_url: http://localhost:9999
+    baseUrl: http://localhost:9999
     routes:
       my-query:
         added:
@@ -375,7 +344,7 @@ reactions:
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 sources:
   - kind: postgres
@@ -394,15 +363,15 @@ queries:
       WHERE o.total > 500
       RETURN o.id, o.customer_id, o.total, o.status
     sources:
-      - source_id: orders-db
+      - sourceId: orders-db
 
 reactions:
   - kind: http
     id: order-notifications
     queries: [high-value-orders]
-    base_url: ${WEBHOOK_URL}
+    baseUrl: ${WEBHOOK_URL}
     token: ${WEBHOOK_TOKEN}
-    timeout_ms: 10000
+    timeoutMs: 10000
     routes:
       high-value-orders:
         added:
@@ -429,7 +398,30 @@ reactions:
             Content-Type: application/json
 ```
 
-## Next Steps
+## Documentation resources
 
-- [Configure gRPC Reaction](/drasi-server/how-to-guides/configure-reactions/configure-grpc-reaction/) - High-performance streaming
-- [Configure SSE Reaction](/drasi-server/how-to-guides/configure-reactions/configure-sse-reaction/) - Browser-friendly streaming
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/reactions/http/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">HTTP Reaction README</h3>
+        <p class="unified-card-summary">Routing, templates, and payload behavior</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-reaction-http" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-reaction-http on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>
+
+## Next steps
+
+- [Configure gRPC Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-grpc-reaction/)
+- [Configure SSE Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-sse-reaction/)

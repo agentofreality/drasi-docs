@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure Platform Reaction"
 linkTitle: "Platform"
-weight: 50
+weight: 40
 description: "Publish query results to Redis Streams"
 related:
   concepts:
@@ -27,7 +27,7 @@ reactions:
   - kind: platform
     id: redis-publisher
     queries: [my-query]
-    redis_url: redis://localhost:6379
+    redisUrl: redis://localhost:6379
 ```
 
 ## Configuration Reference
@@ -37,56 +37,64 @@ reactions:
 | `kind` | string | Required | Must be `platform` |
 | `id` | string | Required | Unique reaction identifier |
 | `queries` | array | Required | Query IDs to subscribe to |
-| `auto_start` | boolean | `true` | Start reaction automatically |
-| `redis_url` | string | Required | Redis connection URL |
-| `pubsub_name` | string | Auto-generated | Pub/sub channel name |
-| `source_name` | string | Auto-generated | Source identifier in events |
-| `max_stream_length` | integer | Unlimited | Maximum stream length |
-| `emit_control_events` | boolean | `false` | Emit control events |
-| `batch_enabled` | boolean | `false` | Enable batching |
-| `batch_max_size` | integer | `100` | Maximum batch size |
-| `batch_max_wait_ms` | integer | `100` | Maximum wait time for batch |
+| `autoStart` | boolean | `true` | Start reaction automatically |
+| `redisUrl` | string | Required | Redis connection URL |
+| `pubsubName` | string | Optional | Pub/sub name used in CloudEvent metadata |
+| `sourceName` | string | Optional | Source name used in CloudEvent metadata |
+| `maxStreamLength` | integer | None | Maximum stream length (enables trimming) |
+| `emitControlEvents` | boolean | `false` | Emit control events |
+| `batchEnabled` | boolean | `false` | Enable batching |
+| `batchMaxSize` | integer | `100` | Maximum batch size |
+| `batchMaxWaitMs` | integer | `100` | Maximum wait time for batch |
 
 ## Redis Connection URL
 
 ```yaml
 # Local Redis
-redis_url: redis://localhost:6379
+redisUrl: redis://localhost:6379
 
 # With password
-redis_url: redis://:password@localhost:6379
+redisUrl: redis://:password@localhost:6379
 
 # With username and password
-redis_url: redis://user:password@localhost:6379
+redisUrl: redis://user:password@localhost:6379
 
 # With database selection
-redis_url: redis://localhost:6379/1
+redisUrl: redis://localhost:6379/1
 
 # TLS connection
-redis_url: rediss://localhost:6379
+redisUrl: rediss://localhost:6379
 ```
 
 ## Event Format
 
-Events are published in CloudEvent format:
+Each Redis Streams entry contains a single field named `data` with a JSON-encoded Dapr CloudEvent envelope.
 
 ```json
 {
-  "specversion": "1.0",
-  "type": "drasi.query.result.change",
-  "source": "drasi-server/my-query",
-  "id": "unique-event-id",
-  "time": "2024-01-15T10:30:00Z",
   "data": {
-    "op": "added",
-    "query_id": "my-query",
-    "after": {
-      "id": "123",
-      "name": "Test"
-    }
-  }
+    "kind": "change",
+    "queryId": "my-query",
+    "sequence": 42,
+    "sourceTimeMs": 1705318245123,
+    "addedResults": [{"id":"123","name":"Test"}],
+    "updatedResults": [{"before":{"id":"123","name":"Old"},"after":{"id":"123","name":"New"}}],
+    "deletedResults": []
+  },
+  "datacontenttype": "application/json",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "pubsubname": "drasi-pubsub",
+  "source": "drasi-core",
+  "specversion": "1.0",
+  "time": "2025-01-15T10:30:45.123Z",
+  "topic": "my-query-results",
+  "type": "com.dapr.event.sent"
 }
 ```
+
+If `pubsubName` or `sourceName` are set, they appear as `pubsubname` and `source` in the CloudEvent envelope.
+
+When `emitControlEvents` is enabled, control events use the same envelope with `data.kind: "control"` and a `controlSignal`.
 
 ## Batching Configuration
 
@@ -97,17 +105,17 @@ reactions:
   - kind: platform
     id: batched-publisher
     queries: [high-volume-events]
-    redis_url: redis://localhost:6379
-    batch_enabled: true
-    batch_max_size: 500
-    batch_max_wait_ms: 200
+    redisUrl: redis://localhost:6379
+    batchEnabled: true
+    batchMaxSize: 500
+    batchMaxWaitMs: 200
 ```
 
 | Setting | Low Latency | High Throughput |
 |---------|-------------|-----------------|
-| `batch_enabled` | `false` | `true` |
-| `batch_max_size` | 1-10 | 100-1000 |
-| `batch_max_wait_ms` | 10-50 | 100-500 |
+| `batchEnabled` | `false` | `true` |
+| `batchMaxSize` | 1-10 | 100-1000 |
+| `batchMaxWaitMs` | 10-50 | 100-500 |
 
 ## Stream Length Management
 
@@ -118,11 +126,11 @@ reactions:
   - kind: platform
     id: bounded-stream
     queries: [events]
-    redis_url: redis://localhost:6379
-    max_stream_length: 100000
+    redisUrl: redis://localhost:6379
+    maxStreamLength: 100000
 ```
 
-When the stream exceeds `max_stream_length`, older entries are automatically trimmed.
+When the stream exceeds `maxStreamLength`, older entries are automatically trimmed.
 
 ## Control Events
 
@@ -133,8 +141,8 @@ reactions:
   - kind: platform
     id: with-control
     queries: [events]
-    redis_url: redis://localhost:6379
-    emit_control_events: true
+    redisUrl: redis://localhost:6379
+    emitControlEvents: true
 ```
 
 Control events include:
@@ -144,19 +152,19 @@ Control events include:
 
 ## Stream Key Naming
 
-By default, streams are named based on the query ID. Customize with `pubsub_name`:
+By default, streams use the CloudEvent `topic` format `{queryId}-results`. This is independent of `pubsubName` (which only affects CloudEvent metadata).
 
 ```yaml
 reactions:
   - kind: platform
-    id: custom-stream
+    id: custom-metadata
     queries: [orders]
-    redis_url: redis://localhost:6379
-    pubsub_name: order-events
-    source_name: ecommerce-system
+    redisUrl: redis://localhost:6379
+    pubsubName: order-events  # metadata only
+    sourceName: ecommerce-system
 ```
 
-Events published to stream key: `order-events`
+Events published to stream key: `orders-results`
 
 ## Use Cases
 
@@ -169,7 +177,7 @@ reactions:
   - kind: platform
     id: platform-connector
     queries: [all-events]
-    redis_url: ${PLATFORM_REDIS_URL}
+    redisUrl: ${PLATFORM_REDIS_URL}
 ```
 
 ### Event Bus
@@ -181,9 +189,9 @@ reactions:
   - kind: platform
     id: event-bus
     queries: [orders, inventory, customers]
-    redis_url: redis://redis:6379
-    batch_enabled: true
-    batch_max_size: 100
+    redisUrl: redis://redis:6379
+    batchEnabled: true
+    batchMaxSize: 100
 ```
 
 ### Cross-Service Communication
@@ -195,9 +203,9 @@ reactions:
   - kind: platform
     id: service-events
     queries: [order-created, order-updated]
-    redis_url: redis://redis:6379
-    pubsub_name: order-service-events
-    max_stream_length: 50000
+    redisUrl: redis://redis:6379
+    pubsubName: order-service-events
+    maxStreamLength: 50000
 ```
 
 ### Data Replication
@@ -209,10 +217,10 @@ reactions:
   - kind: platform
     id: replication
     queries: [all-changes]
-    redis_url: redis://replica-redis:6379
-    batch_enabled: true
-    batch_max_size: 500
-    batch_max_wait_ms: 100
+    redisUrl: redis://replica-redis:6379
+    batchEnabled: true
+    batchMaxSize: 500
+    batchMaxWaitMs: 100
 ```
 
 ## Consuming Events
@@ -221,13 +229,13 @@ reactions:
 
 ```bash
 # Read from stream
-redis-cli XREAD STREAMS my-query 0
+redis-cli XREAD STREAMS my-query-results 0
 
 # Read new events (blocking)
-redis-cli XREAD BLOCK 0 STREAMS my-query $
+redis-cli XREAD BLOCK 0 STREAMS my-query-results $
 
 # Consumer group
-redis-cli XREADGROUP GROUP my-group consumer-1 STREAMS my-query >
+redis-cli XREADGROUP GROUP my-group consumer-1 STREAMS my-query-results >
 ```
 
 ### Python Consumer
@@ -240,17 +248,17 @@ r = redis.Redis(host='localhost', port=6379)
 
 # Create consumer group
 try:
-    r.xgroup_create('my-query', 'my-group', id='0', mkstream=True)
+    r.xgroup_create('my-query-results', 'my-group', id='0', mkstream=True)
 except redis.exceptions.ResponseError:
     pass  # Group already exists
 
 while True:
-    events = r.xreadgroup('my-group', 'consumer-1', {'my-query': '>'}, block=5000)
+    events = r.xreadgroup('my-group', 'consumer-1', {'my-query-results': '>'}, block=5000)
     for stream, messages in events:
         for message_id, data in messages:
             event = json.loads(data[b'data'])
             print(f"Received: {event}")
-            r.xack('my-query', 'my-group', message_id)
+            r.xack('my-query-results', 'my-group', message_id)
 ```
 
 ### Node.js Consumer
@@ -262,7 +270,7 @@ const redis = new Redis();
 async function consume() {
   // Create consumer group
   try {
-    await redis.xgroup('CREATE', 'my-query', 'my-group', '0', 'MKSTREAM');
+    await redis.xgroup('CREATE', 'my-query-results', 'my-group', '0', 'MKSTREAM');
   } catch (e) {
     // Group exists
   }
@@ -271,7 +279,7 @@ async function consume() {
     const result = await redis.xreadgroup(
       'GROUP', 'my-group', 'consumer-1',
       'BLOCK', 5000,
-      'STREAMS', 'my-query', '>'
+      'STREAMS', 'my-query-results', '>'
     );
 
     if (result) {
@@ -279,7 +287,7 @@ async function consume() {
         for (const [id, fields] of messages) {
           const event = JSON.parse(fields[1]);
           console.log('Received:', event);
-          await redis.xack('my-query', 'my-group', id);
+          await redis.xack('my-query-results', 'my-group', id);
         }
       }
     }
@@ -323,7 +331,7 @@ volumes:
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 sources:
   - kind: postgres
@@ -339,19 +347,19 @@ queries:
   - id: order-events
     query: "MATCH (o:orders) RETURN o.id, o.status, o.total"
     sources:
-      - source_id: orders-db
+      - sourceId: orders-db
 
 reactions:
   - kind: platform
     id: order-stream
     queries: [order-events]
-    redis_url: ${REDIS_URL:-redis://localhost:6379}
-    pubsub_name: ecommerce-orders
-    source_name: order-service
-    max_stream_length: 100000
-    batch_enabled: true
-    batch_max_size: 100
-    batch_max_wait_ms: 100
+    redisUrl: ${REDIS_URL:-redis://localhost:6379}
+    pubsubName: ecommerce-orders
+    sourceName: order-service
+    maxStreamLength: 100000
+    batchEnabled: true
+    batchMaxSize: 100
+    batchMaxWaitMs: 100
 ```
 
 ## Monitoring
@@ -359,25 +367,25 @@ reactions:
 ### Stream Info
 
 ```bash
-redis-cli XINFO STREAM my-query
+redis-cli XINFO STREAM my-query-results
 ```
 
 ### Stream Length
 
 ```bash
-redis-cli XLEN my-query
+redis-cli XLEN my-query-results
 ```
 
 ### Consumer Groups
 
 ```bash
-redis-cli XINFO GROUPS my-query
+redis-cli XINFO GROUPS my-query-results
 ```
 
 ### Pending Messages
 
 ```bash
-redis-cli XPENDING my-query my-group
+redis-cli XPENDING my-query-results my-group
 ```
 
 ## Troubleshooting
@@ -390,7 +398,7 @@ redis-cli XPENDING my-query my-group
 
 ### Memory Issues
 
-- Set `max_stream_length` to limit growth
+- Set `maxStreamLength` to limit growth
 - Monitor Redis memory usage
 - Configure Redis maxmemory policies
 
@@ -400,7 +408,31 @@ redis-cli XPENDING my-query my-group
 - Enable batching
 - Increase consumer throughput
 
-## Next Steps
+## Documentation resources
 
-- [Configure Platform Source](/drasi-server/how-to-guides/configure-sources/configure-platform-source/) - Consume from Redis Streams
-- [Configure SSE Reaction](/drasi-server/how-to-guides/configure-reactions/configure-sse-reaction/) - For browser clients
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/reactions/platform/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Platform Reaction README</h3>
+        <p class="unified-card-summary">Redis Streams format and CloudEvent envelope</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-reaction-platform" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-reaction-platform on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>
+
+## Next steps
+
+- [Configure Platform Source](/drasi-server/how-to-guides/configuration/configure-sources/configure-platform-source/)
+- [Configure SSE Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-sse-reaction/)
+

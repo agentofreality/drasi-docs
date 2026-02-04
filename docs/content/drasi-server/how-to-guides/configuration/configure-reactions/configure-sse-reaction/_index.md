@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure SSE Reaction"
 linkTitle: "SSE"
-weight: 40
+weight: 60
 description: "Stream query results via Server-Sent Events for real-time dashboards"
 related:
   concepts:
@@ -30,7 +30,7 @@ reactions:
     queries: [my-query]
     host: 0.0.0.0
     port: 8081
-    sse_path: /events
+    ssePath: /events
 ```
 
 ## Configuration Reference
@@ -40,13 +40,13 @@ reactions:
 | `kind` | string | Required | Must be `sse` |
 | `id` | string | Required | Unique reaction identifier |
 | `queries` | array | Required | Query IDs to subscribe to |
-| `auto_start` | boolean | `true` | Start reaction automatically |
+| `autoStart` | boolean | `true` | Start reaction automatically |
 | `host` | string | `0.0.0.0` | Listen address |
 | `port` | integer | `8080` | Listen port |
-| `sse_path` | string | `/events` | SSE endpoint path |
-| `heartbeat_interval_ms` | integer | `30000` | Heartbeat interval in milliseconds |
+| `ssePath` | string | `/events` | SSE endpoint path |
+| `heartbeatIntervalMs` | integer | `30000` | Heartbeat interval in milliseconds |
 | `routes` | object | `{}` | Per-query path and template configurations |
-| `default_template` | object | None | Default template for all queries |
+| `defaultTemplate` | object | None | Default template for all queries |
 
 ## Connecting to the SSE Stream
 
@@ -83,16 +83,21 @@ function LiveDashboard() {
     const eventSource = new EventSource('http://localhost:8081/events');
 
     eventSource.onmessage = (event) => {
-      const change = JSON.parse(event.data);
+      const msg = JSON.parse(event.data);
 
-      if (change.op === 'added') {
-        setData(prev => [...prev, change.after]);
-      } else if (change.op === 'updated') {
-        setData(prev => prev.map(item =>
-          item.id === change.after.id ? change.after : item
-        ));
-      } else if (change.op === 'deleted') {
-        setData(prev => prev.filter(item => item.id !== change.before.id));
+      // Default SSE payloads are query batches: { queryId, results: [ { type, ... } ], timestamp }
+      if (!Array.isArray(msg.results)) return;
+
+      for (const diff of msg.results) {
+        if (diff.type === 'ADD') {
+          setData(prev => [...prev, diff.data]);
+        } else if (diff.type === 'UPDATE') {
+          setData(prev => prev.map(item =>
+            item.id === diff.after.id ? diff.after : item
+          ));
+        } else if (diff.type === 'DELETE') {
+          setData(prev => prev.filter(item => item.id !== diff.data.id));
+        }
       }
     };
 
@@ -114,11 +119,11 @@ function LiveDashboard() {
 Events are sent in Server-Sent Events format:
 
 ```
-data: {"op":"added","query":"my-query","after":{"id":"1","name":"Test"}}
+data: {"queryId":"my-query","result":{"type":"ADD","data":{"id":"1","name":"Test"}},"timestamp":1706742123456}
 
-data: {"op":"updated","query":"my-query","before":{"id":"1","name":"Test"},"after":{"id":"1","name":"Updated"}}
+data: {"queryId":"my-query","result":{"type":"UPDATE","data":{"id":"1","name":"Updated"},"before":{"id":"1","name":"Test"},"after":{"id":"1","name":"Updated"}},"timestamp":1706742123457}
 
-data: {"op":"deleted","query":"my-query","before":{"id":"1","name":"Updated"}}
+data: {"queryId":"my-query","result":{"type":"DELETE","data":{"id":"1","name":"Updated"}},"timestamp":1706742123458}
 ```
 
 ## Custom Templates
@@ -133,7 +138,7 @@ reactions:
     id: custom-stream
     queries: [sensors]
     port: 8081
-    default_template:
+    defaultTemplate:
       added:
         template: '{"event":"new","sensor":{{json after}}}'
       updated:
@@ -152,15 +157,15 @@ reactions:
     id: multi-stream
     queries: [orders, inventory]
     port: 8081
-    sse_path: /events
+    ssePath: /events
     routes:
       orders:
-        path: /orders/stream
         added:
+          path: /orders/stream
           template: '{"type":"order","data":{{json after}}}'
       inventory:
-        path: /inventory/stream
         updated:
+          path: /inventory/stream
           template: '{"type":"stock","sku":"{{after.sku}}","qty":{{after.quantity}}}'
 ```
 
@@ -179,7 +184,7 @@ reactions:
     id: long-lived-stream
     queries: [events]
     port: 8081
-    heartbeat_interval_ms: 15000  # 15 seconds
+    heartbeatIntervalMs: 15000  # 15 seconds
 ```
 
 Heartbeats appear as comments in the SSE stream:
@@ -187,7 +192,7 @@ Heartbeats appear as comments in the SSE stream:
 ```
 : heartbeat
 
-data: {"op":"added",...}
+data: {"queryId":"my-query","results":[...],"timestamp":1706742123456}
 
 : heartbeat
 ```
@@ -234,7 +239,7 @@ For browser clients from different origins, you may need to configure CORS. The 
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 sources:
   - kind: postgres
@@ -254,7 +259,7 @@ queries:
       WHERE o.status IN ['pending', 'processing']
       RETURN o.id, o.customer_name, o.total, o.status, o.created_at
     sources:
-      - source_id: orders-db
+      - sourceId: orders-db
 
   - id: order-alerts
     query: |
@@ -262,7 +267,7 @@ queries:
       WHERE o.total > 1000
       RETURN o.id, o.total, o.customer_name
     sources:
-      - source_id: orders-db
+      - sourceId: orders-db
 
 reactions:
   - kind: sse
@@ -270,7 +275,7 @@ reactions:
     queries: [live-orders, order-alerts]
     host: 0.0.0.0
     port: 8081
-    heartbeat_interval_ms: 30000
+    heartbeatIntervalMs: 30000
     routes:
       live-orders:
         path: /orders
@@ -325,12 +330,19 @@ reactions:
     // Orders stream
     const orderStream = new EventSource('http://localhost:8081/orders');
     orderStream.onmessage = (event) => {
-      const change = JSON.parse(event.data);
-      if (change.op === 'added' || change.op === 'updated') {
-        orders[change.after.id] = change.after;
-      } else if (change.op === 'deleted') {
-        delete orders[change.before.id];
+      const msg = JSON.parse(event.data);
+      if (!Array.isArray(msg.results)) return;
+
+      for (const diff of msg.results) {
+        if (diff.type === 'ADD') {
+          orders[diff.data.id] = diff.data;
+        } else if (diff.type === 'UPDATE') {
+          orders[diff.after.id] = diff.after;
+        } else if (diff.type === 'DELETE') {
+          delete orders[diff.data.id];
+        }
       }
+
       updateTable();
     };
 
@@ -386,14 +398,14 @@ reactions:
     id: iot-stream
     queries: [sensor-readings, device-alerts]
     port: 8081
-    heartbeat_interval_ms: 10000
+    heartbeatIntervalMs: 10000
 ```
 
 ## Troubleshooting
 
 ### Connection Drops
 
-- Decrease `heartbeat_interval_ms`
+- Decrease `heartbeatIntervalMs`
 - Check for proxy timeouts
 - Verify network stability
 
@@ -413,7 +425,31 @@ reactions:
 - Limit the number of concurrent connections
 - Consider using multiple SSE reactions for different queries
 
-## Next Steps
+## Documentation resources
 
-- [Configure HTTP Reaction](/drasi-server/how-to-guides/configure-reactions/configure-http-reaction/) - For webhook integrations
-- [Configure Platform Reaction](/drasi-server/how-to-guides/configure-reactions/configure-platform-reaction/) - For Redis Streams
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/reactions/sse/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">SSE Reaction README</h3>
+        <p class="unified-card-summary">Behavior, templates, and paths</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-reaction-sse" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-reaction-sse on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>
+
+## Next steps
+
+- [Configure HTTP Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-http-reaction/)
+- [Configure Platform Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-platform-reaction/)
+

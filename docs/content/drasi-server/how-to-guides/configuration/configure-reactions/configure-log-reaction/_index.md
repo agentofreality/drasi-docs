@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure Log Reaction"
 linkTitle: "Log"
-weight: 10
+weight: 30
 description: "Output query results to console with customizable templates"
 related:
   concepts:
@@ -18,7 +18,7 @@ related:
       url: "/drasi-server/reference/configuration/"
 ---
 
-The Log {{< term "Reaction" >}} outputs query {{< term "Result Change Event" "result changes" >}} to the console. It's useful for development, debugging, and simple monitoring scenarios.
+The Log {{< term "Reaction" >}} outputs query {{< term "Result Change Event" "result changes" >}} to stdout. It's useful for development, debugging, and simple monitoring scenarios.
 
 ## Basic Configuration
 
@@ -27,7 +27,7 @@ reactions:
   - kind: log
     id: console-output
     queries: [my-query]
-    auto_start: true
+    autoStart: true
 ```
 
 ## Configuration Reference
@@ -37,18 +37,19 @@ reactions:
 | `kind` | string | Required | Must be `log` |
 | `id` | string | Required | Unique reaction identifier |
 | `queries` | array | Required | Query IDs to subscribe to |
-| `auto_start` | boolean | `true` | Start reaction automatically |
-| `routes` | object | `{}` | Per-query template configurations |
-| `default_template` | object | None | Default template for all queries |
+| `autoStart` | boolean | `true` | Start reaction automatically |
+| `routes` | object | `{}` | Per-query template configurations (`{ <queryId>: { added/updated/deleted } }`) |
+| `defaultTemplate` | object | None | Default template for all queries |
 
 ## Default Output
 
 Without custom templates, changes are logged as JSON:
 
 ```
-[INFO] Query 'my-query' added: {"id": "123", "name": "Test", "value": 42}
-[INFO] Query 'my-query' updated: {"id": "123", "name": "Test", "value": 50}
-[INFO] Query 'my-query' deleted: {"id": "123", "name": "Test", "value": 50}
+[console-output] Query 'my-query' (1 items):
+[console-output]   [ADD] {"id":"123","name":"Test","value":42}
+[console-output]   [UPDATE] {"id":"123","name":"Test","value":42} -> {"id":"123","name":"Test","value":50}
+[console-output]   [DELETE] {"id":"123","name":"Test","value":50}
 ```
 
 ## Custom Templates
@@ -64,7 +65,7 @@ reactions:
   - kind: log
     id: formatted-log
     queries: [my-query]
-    default_template:
+    defaultTemplate:
       added:
         template: "[NEW] {{after.id}}: {{after.name}} = {{after.value}}"
       updated:
@@ -105,7 +106,10 @@ reactions:
 |----------|-------------|--------------|
 | `{{after}}` | New/current state | `added`, `updated` |
 | `{{before}}` | Previous state | `updated`, `deleted` |
-| `{{after.property}}` | Access specific property | `added`, `updated` |
+| `{{data}}` | Raw result data (when present) | `updated` |
+| `{{query_name}}` | Query name that produced the result | all |
+| `{{operation}}` | `ADD`, `UPDATE`, or `DELETE` | all |
+| `{{after.property}}` | Access a specific property | `added`, `updated` |
 | `{{before.property}}` | Access previous property | `updated`, `deleted` |
 
 ### JSON Helper
@@ -113,7 +117,7 @@ reactions:
 Output entire object as JSON:
 
 ```yaml
-default_template:
+defaultTemplate:
   added:
     template: "New item: {{json after}}"
 ```
@@ -136,10 +140,10 @@ reactions:
   - kind: log
     id: alerts
     queries: [high-priority-alerts]
-    default_template:
+    defaultTemplate:
       added:
         template: |
-          ⚠️  ALERT: {{after.type}}
+          ALERT: {{after.type}}
           ID: {{after.id}}
           Message: {{after.message}}
           Severity: {{after.severity}}
@@ -177,7 +181,7 @@ reactions:
   - kind: log
     id: json-log
     queries: [events]
-    default_template:
+    defaultTemplate:
       added:
         template: '{"event":"added","data":{{json after}}}'
       updated:
@@ -186,33 +190,11 @@ reactions:
         template: '{"event":"deleted","data":{{json before}}}'
 ```
 
-## Complete Example
+## Example with per-query templates
+
+This is a reaction-only excerpt (you would include it under your `reactions:` list):
 
 ```yaml
-host: 0.0.0.0
-port: 8080
-log_level: info
-
-sources:
-  - kind: mock
-    id: sensors
-    data_type: sensor
-    interval_ms: 2000
-
-queries:
-  - id: all-sensors
-    query: "MATCH (s:Sensor) RETURN s.id, s.temperature, s.humidity"
-    sources:
-      - source_id: sensors
-
-  - id: hot-sensors
-    query: |
-      MATCH (s:Sensor)
-      WHERE s.temperature > 80
-      RETURN s.id, s.temperature
-    sources:
-      - source_id: sensors
-
 reactions:
   - kind: log
     id: sensor-log
@@ -225,7 +207,7 @@ reactions:
           template: "Sensor {{after.id}} update: temp={{after.temperature}}°F"
       hot-sensors:
         added:
-          template: "🔥 HIGH TEMP ALERT: Sensor {{after.id}} at {{after.temperature}}°F"
+          template: "HIGH TEMP ALERT: Sensor {{after.id}} at {{after.temperature}}°F"
 ```
 
 ## Viewing Logs
@@ -249,7 +231,7 @@ Logs appear in stdout when running directly:
 Set log level to see more detail:
 
 ```yaml
-log_level: debug
+logLevel: debug
 ```
 
 Or via environment:
@@ -258,79 +240,32 @@ Or via environment:
 RUST_LOG=debug ./drasi-server --config config/server.yaml
 ```
 
-## Use Cases
+## Documentation resources
 
-### Development
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/reactions/log/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Log Reaction README</h3>
+        <p class="unified-card-summary">Templates, variables, and plugin behavior</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-reaction-log" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-reaction-log on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>
 
-Quick feedback during development:
 
-```yaml
-reactions:
-  - kind: log
-    id: dev-log
-    queries: [test-query]
-```
+## Next steps
 
-### Debugging
-
-Detailed output for troubleshooting:
-
-```yaml
-reactions:
-  - kind: log
-    id: debug-log
-    queries: [problematic-query]
-    default_template:
-      added:
-        template: "[DEBUG] Added: {{json after}}"
-      updated:
-        template: "[DEBUG] Updated - Before: {{json before}} After: {{json after}}"
-      deleted:
-        template: "[DEBUG] Deleted: {{json before}}"
-```
-
-### Simple Monitoring
-
-Basic alerting without external integrations:
-
-```yaml
-reactions:
-  - kind: log
-    id: monitor
-    queries: [error-events, warning-events]
-    routes:
-      error-events:
-        added:
-          template: "❌ ERROR: {{after.message}}"
-      warning-events:
-        added:
-          template: "⚠️  WARNING: {{after.message}}"
-```
-
-## Combining with Other Reactions
-
-Use log reaction alongside other reactions for debugging:
-
-```yaml
-reactions:
-  # Debug logging
-  - kind: log
-    id: debug-log
-    queries: [orders]
-
-  # Production webhook
-  - kind: http
-    id: order-webhook
-    queries: [orders]
-    base_url: https://api.example.com
-    routes:
-      orders:
-        added:
-          url: /orders
-          method: POST
-```
-
-## Next Steps
-
-- [Configure HTTP Reaction](/drasi-server/how-to-guides/configure-reactions/configure-http-reaction/) - Send webhooks
-- [Configure SSE Reaction](/drasi-server/how-to-guides/configure-reactions/configure-sse-reaction/) - Stream to browsers
+- [Configure HTTP Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-http-reaction/)
+- [Configure gRPC Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-grpc-reaction/)
+- [Configure SSE Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-sse-reaction/)

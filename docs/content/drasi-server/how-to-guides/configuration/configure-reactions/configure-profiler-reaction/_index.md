@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure Profiler Reaction"
 linkTitle: "Profiler"
-weight: 60
+weight: 50
 description: "Collect performance metrics for queries"
 related:
   concepts:
@@ -36,9 +36,9 @@ reactions:
 | `kind` | string | Required | Must be `profiler` |
 | `id` | string | Required | Unique reaction identifier |
 | `queries` | array | Required | Query IDs to profile |
-| `auto_start` | boolean | `true` | Start profiler automatically |
-| `window_size` | integer | `100` | Number of events in metrics window |
-| `report_interval_secs` | integer | `60` | Report interval in seconds |
+| `autoStart` | boolean | `true` | Start profiler automatically |
+| `windowSize` | integer | `100` | Number of results in metrics window |
+| `reportIntervalSecs` | integer | `60` | Report interval in seconds |
 
 ## Metrics Collected
 
@@ -54,14 +54,14 @@ The profiler tracks:
 
 ## Window Configuration
 
-The `window_size` controls how many recent events are used for metric calculations:
+The `windowSize` controls how many recent results are used for metric calculations:
 
 ```yaml
 reactions:
   - kind: profiler
     id: detailed-profiler
     queries: [high-volume-query]
-    window_size: 1000  # Use last 1000 events for metrics
+    windowSize: 1000  # Use last 1000 results for metrics
 ```
 
 | Use Case | Window Size |
@@ -72,14 +72,14 @@ reactions:
 
 ## Report Interval
 
-Control how often metrics are reported:
+Control how often metrics are reported to the Drasi Server logs:
 
 ```yaml
 reactions:
   - kind: profiler
     id: frequent-reports
     queries: [critical-query]
-    report_interval_secs: 10  # Report every 10 seconds
+    reportIntervalSecs: 10  # Report every 10 seconds
 ```
 
 | Use Case | Interval |
@@ -93,18 +93,13 @@ reactions:
 Profiler output in logs:
 
 ```
-[INFO] Query Profiler Report - query: my-query
-  Events processed: 1523
-  Window size: 100
-  Throughput: 25.4 events/sec
-  Latency (ms):
-    Min: 0.5
-    Max: 45.2
-    Avg: 3.2
-    P50: 2.1
-    P95: 12.5
-    P99: 35.8
-  Errors: 0 (0.00%)
+[query-profiler] ========== Profiling Report ==========
+[query-profiler] Source→Query: ...
+[query-profiler] Query Processing: ...
+[query-profiler] Query→Reaction: ...
+[query-profiler] Reaction Processing: ...
+[query-profiler] Total End-to-End: ...
+[query-profiler] ======================================
 ```
 
 ## Use Cases
@@ -118,8 +113,8 @@ reactions:
   - kind: profiler
     id: dev-profiler
     queries: [test-query]
-    window_size: 50
-    report_interval_secs: 10
+    windowSize: 50
+    reportIntervalSecs: 10
 ```
 
 ### Production Monitoring
@@ -131,8 +126,8 @@ reactions:
   - kind: profiler
     id: production-profiler
     queries: [order-query, inventory-query, customer-query]
-    window_size: 500
-    report_interval_secs: 60
+    windowSize: 500
+    reportIntervalSecs: 60
 ```
 
 ### Performance Testing
@@ -144,8 +139,8 @@ reactions:
   - kind: profiler
     id: load-test-profiler
     queries: [load-test-query]
-    window_size: 2000
-    report_interval_secs: 5
+    windowSize: 2000
+    reportIntervalSecs: 5
 ```
 
 ### Multi-Query Profiling
@@ -161,8 +156,8 @@ reactions:
       - inventory
       - customers
       - analytics
-    window_size: 200
-    report_interval_secs: 30
+    windowSize: 200
+    reportIntervalSecs: 30
 ```
 
 ## Complete Example
@@ -170,7 +165,7 @@ reactions:
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 sources:
   - kind: postgres
@@ -187,7 +182,7 @@ queries:
   - id: order-updates
     query: "MATCH (o:orders) RETURN o"
     sources:
-      - source_id: main-db
+      - sourceId: main-db
 
   - id: low-inventory
     query: |
@@ -195,14 +190,14 @@ queries:
       WHERE i.quantity < i.reorder_point
       RETURN i
     sources:
-      - source_id: main-db
+      - sourceId: main-db
 
 reactions:
   # Production reactions
   - kind: http
     id: order-webhook
     queries: [order-updates]
-    base_url: https://api.example.com
+    baseUrl: https://api.example.com
 
   - kind: sse
     id: inventory-dashboard
@@ -213,8 +208,8 @@ reactions:
   - kind: profiler
     id: query-profiler
     queries: [order-updates, low-inventory]
-    window_size: 200
-    report_interval_secs: 60
+    windowSize: 200
+    reportIntervalSecs: 60
 ```
 
 ## Combining with Log Reaction
@@ -232,8 +227,8 @@ reactions:
   - kind: profiler
     id: profiler
     queries: [my-query]
-    window_size: 100
-    report_interval_secs: 30
+    windowSize: 100
+    reportIntervalSecs: 30
 ```
 
 ## Interpreting Metrics
@@ -276,7 +271,7 @@ Based on profiler metrics:
 
 ### Memory Issues
 
-1. Reduce `window_size`
+1. Reduce `windowSize`
 2. Increase report interval
 3. Profile fewer queries
 
@@ -290,15 +285,38 @@ Based on profiler metrics:
 
 ### Inaccurate Metrics
 
-- Increase `window_size` for stability
+- Increase `windowSize` for stability
 - Wait for enough events to accumulate
 - Check for event bursts skewing metrics
 
 ### High Overhead
 
-- Increase `report_interval_secs`
-- Reduce `window_size`
+- Increase `reportIntervalSecs`
+- Reduce `windowSize`
 - Profile only critical queries
+
+## Documentation resources
+
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/reactions/profiler/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Profiler Reaction README</h3>
+        <p class="unified-card-summary">Implementation details and runtime behavior.</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-reaction-profiler" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-reaction-profiler on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history.</p>
+      </div>
+    </div>
+  </a>
+</div>
 
 ## Next Steps
 

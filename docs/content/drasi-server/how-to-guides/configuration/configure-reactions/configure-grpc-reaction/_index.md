@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure gRPC Reaction"
 linkTitle: "gRPC"
-weight: 30
+weight: 10
 description: "Stream query results via gRPC"
 related:
   concepts:
@@ -37,14 +37,14 @@ reactions:
 | `kind` | string | Required | Must be `grpc` |
 | `id` | string | Required | Unique reaction identifier |
 | `queries` | array | Required | Query IDs to subscribe to |
-| `auto_start` | boolean | `true` | Start reaction automatically |
+| `autoStart` | boolean | `true` | Start reaction automatically |
 | `endpoint` | string | `grpc://localhost:50052` | gRPC server endpoint |
-| `timeout_ms` | integer | `5000` | Connection timeout in milliseconds |
-| `batch_size` | integer | `100` | Events per batch |
-| `batch_flush_timeout_ms` | integer | `1000` | Batch flush timeout |
-| `max_retries` | integer | `3` | Maximum retry attempts |
-| `connection_retry_attempts` | integer | `5` | Connection retry attempts |
-| `initial_connection_timeout_ms` | integer | `10000` | Initial connection timeout |
+| `timeoutMs` | integer | `5000` | Request timeout in milliseconds |
+| `batchSize` | integer | `100` | Items per batch |
+| `batchFlushTimeoutMs` | integer | `1000` | Flush timeout for partial batches |
+| `maxRetries` | integer | `3` | Maximum retry attempts |
+| `connectionRetryAttempts` | integer | `5` | Connection retry attempts |
+| `initialConnectionTimeoutMs` | integer | `10000` | Initial connection timeout |
 | `metadata` | object | `{}` | gRPC metadata headers |
 
 ## Batching Configuration
@@ -57,14 +57,14 @@ reactions:
     id: batched-stream
     queries: [high-volume-query]
     endpoint: grpc://processor:50052
-    batch_size: 500
-    batch_flush_timeout_ms: 2000
+    batchSize: 500
+    batchFlushTimeoutMs: 2000
 ```
 
 | Setting | Low Latency | High Throughput |
 |---------|-------------|-----------------|
-| `batch_size` | 1-10 | 100-1000 |
-| `batch_flush_timeout_ms` | 100-500 | 1000-5000 |
+| `batchSize` | 1-10 | 100-1000 |
+| `batchFlushTimeoutMs` | 100-500 | 1000-5000 |
 
 ## Retry Configuration
 
@@ -76,9 +76,9 @@ reactions:
     id: reliable-stream
     queries: [critical-events]
     endpoint: grpc://processor:50052
-    max_retries: 5
-    connection_retry_attempts: 10
-    initial_connection_timeout_ms: 30000
+    maxRetries: 5
+    connectionRetryAttempts: 10
+    initialConnectionTimeoutMs: 30000
 ```
 
 ## Metadata Headers
@@ -97,68 +97,20 @@ reactions:
       x-environment: production
 ```
 
-## gRPC Adaptive Reaction
-
-For variable-rate event streams, use the adaptive variant:
-
-```yaml
-reactions:
-  - kind: grpc-adaptive
-    id: adaptive-stream
-    queries: [events]
-    endpoint: grpc://processor:50052
-    adaptive_min_batch_size: 1
-    adaptive_max_batch_size: 1000
-    adaptive_window_size: 100
-    adaptive_batch_timeout_ms: 1000
-```
-
-### Adaptive Configuration
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `adaptive_min_batch_size` | integer | `1` | Minimum events per batch |
-| `adaptive_max_batch_size` | integer | `1000` | Maximum events per batch |
-| `adaptive_window_size` | integer | `100` | Window for adaptive calculations |
-| `adaptive_batch_timeout_ms` | integer | `1000` | Max wait time for batch |
-
 ## Protocol Definition
 
-The gRPC reaction connects to a service implementing this interface:
+The gRPC reaction sends results to a service implementing `drasi.v1.ReactionService` (see `reaction.proto` in the plugin repo):
 
 ```protobuf
 syntax = "proto3";
 
-package drasi;
+package drasi.v1;
 
-service EventReceiver {
-  rpc ReceiveEvents(stream EventBatch) returns (stream Ack);
-}
-
-message EventBatch {
-  string query_id = 1;
-  repeated ChangeEvent events = 2;
-}
-
-message ChangeEvent {
-  string op = 1;          // "added", "updated", "deleted"
-  string id = 2;
-  map<string, Value> before = 3;
-  map<string, Value> after = 4;
-}
-
-message Value {
-  oneof kind {
-    string string_value = 1;
-    int64 int_value = 2;
-    double double_value = 3;
-    bool bool_value = 4;
-  }
-}
-
-message Ack {
-  bool success = 1;
-  string message = 2;
+service ReactionService {
+  rpc ProcessResults(ProcessResultsRequest) returns (ProcessResultsResponse);
+  rpc StreamResults(stream QueryResult) returns (stream StreamResultsResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream QueryResult);
+  rpc HealthCheck(google.protobuf.Empty) returns (ReactionHealthCheckResponse);
 }
 ```
 
@@ -174,8 +126,8 @@ reactions:
     id: event-processor
     queries: [transactions, alerts]
     endpoint: grpc://processor.service:50052
-    batch_size: 100
-    timeout_ms: 5000
+    batchSize: 100
+    timeoutMs: 5000
 ```
 
 ### Microservice Integration
@@ -207,8 +159,8 @@ reactions:
     id: remote-dc
     queries: [replicated-events]
     endpoint: grpc://remote-dc.example.com:50052
-    timeout_ms: 30000
-    connection_retry_attempts: 10
+    timeoutMs: 30000
+    connectionRetryAttempts: 10
     metadata:
       x-datacenter: us-west
 ```
@@ -249,7 +201,7 @@ reactions:
 ```yaml
 host: 0.0.0.0
 port: 8080
-log_level: info
+logLevel: info
 
 sources:
   - kind: postgres
@@ -265,24 +217,24 @@ queries:
   - id: order-events
     query: "MATCH (o:orders) RETURN o.id, o.status, o.total"
     sources:
-      - source_id: orders-db
+      - sourceId: orders-db
 
 reactions:
   - kind: grpc
     id: order-processor
     queries: [order-events]
     endpoint: ${GRPC_ENDPOINT:-grpc://localhost:50052}
-    timeout_ms: 10000
-    batch_size: 50
-    batch_flush_timeout_ms: 1000
-    max_retries: 5
+    timeoutMs: 10000
+    batchSize: 50
+    batchFlushTimeoutMs: 1000
+    maxRetries: 5
     metadata:
       authorization: Bearer ${API_TOKEN}
 ```
 
-## Performance Tuning
+## Performance tuning
 
-### Low Latency
+### Low latency
 
 ```yaml
 reactions:
@@ -290,49 +242,47 @@ reactions:
     id: low-latency
     queries: [events]
     endpoint: grpc://processor:50052
-    batch_size: 1
-    batch_flush_timeout_ms: 50
-    timeout_ms: 1000
+    batchSize: 1
+    batchFlushTimeoutMs: 50
+    timeoutMs: 1000
 ```
 
-### High Throughput
+### Higher throughput
 
 ```yaml
 reactions:
-  - kind: grpc-adaptive
+  - kind: grpc
     id: high-throughput
     queries: [events]
     endpoint: grpc://processor:50052
-    adaptive_min_batch_size: 50
-    adaptive_max_batch_size: 2000
-    adaptive_batch_timeout_ms: 2000
+    batchSize: 500
+    batchFlushTimeoutMs: 2000
 ```
 
 ## Troubleshooting
 
 ### Connection Timeout
 
-- Increase `initial_connection_timeout_ms`
+- Increase `initialConnectionTimeoutMs`
 - Verify endpoint is reachable
 - Check firewall rules
 
 ### Frequent Disconnects
 
-- Increase `connection_retry_attempts`
+- Increase `connectionRetryAttempts`
 - Check network stability
 - Monitor processor service health
 
 ### High Latency
 
-- Reduce `batch_size`
-- Reduce `batch_flush_timeout_ms`
+- Reduce `batchSize`
+- Reduce `batchFlushTimeoutMs`
 - Check network latency
 
 ### Message Backlog
 
-- Increase `batch_size`
+- Increase `batchSize`
 - Scale the receiving service
-- Consider adaptive batching
 
 ## gRPC vs HTTP
 
@@ -345,7 +295,30 @@ reactions:
 | **Integration** | Requires gRPC service | Standard webhooks |
 | **Best for** | High-volume, real-time | API integrations |
 
-## Next Steps
+## Documentation resources
 
-- [Configure HTTP Reaction](/drasi-server/how-to-guides/configure-reactions/configure-http-reaction/) - For webhook integrations
-- [Configure SSE Reaction](/drasi-server/how-to-guides/configure-reactions/configure-sse-reaction/) - For browser clients
+<div class="card-grid card-grid--2">
+  <a href="https://github.com/drasi-project/drasi-core/blob/main/components/reactions/grpc/README.md" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">gRPC Reaction README</h3>
+        <p class="unified-card-summary">Protocol, proto files, and plugin behavior</p>
+      </div>
+    </div>
+  </a>
+  <a href="https://crates.io/crates/drasi-reaction-grpc" target="_blank" rel="noopener">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-box"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">drasi-reaction-grpc on crates.io</h3>
+        <p class="unified-card-summary">Package info and release history</p>
+      </div>
+    </div>
+  </a>
+</div>
+
+## Next steps
+
+- [Configure HTTP Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-http-reaction/)
+- [Configure SSE Reaction](/drasi-server/how-to-guides/configuration/configure-reactions/configure-sse-reaction/)
