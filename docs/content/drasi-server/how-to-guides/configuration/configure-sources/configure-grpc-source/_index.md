@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure gRPC Source"
 linkTitle: "gRPC"
-weight: 30
+weight: 10
 description: "Receive change events via gRPC"
 related:
   concepts:

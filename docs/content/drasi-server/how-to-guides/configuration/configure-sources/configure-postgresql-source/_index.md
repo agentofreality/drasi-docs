@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure PostgreSQL Source"
 linkTitle: "PostgreSQL"
-weight: 10
+weight: 50
 description: "Stream changes from PostgreSQL using logical replication"
 related:
   concepts:

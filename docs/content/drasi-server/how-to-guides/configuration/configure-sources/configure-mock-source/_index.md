@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure Mock Source"
 linkTitle: "Mock"
-weight: 40
+weight: 30
 description: "Generate synthetic node inserts for development and testing"
 related:
   concepts:

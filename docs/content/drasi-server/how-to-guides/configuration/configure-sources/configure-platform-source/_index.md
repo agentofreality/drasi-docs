@@ -2,7 +2,7 @@
 type: "docs"
 title: "Configure Platform Source"
 linkTitle: "Platform"
-weight: 50
+weight: 40
 description: "Consume CloudEvent-wrapped change events from Redis Streams"
 related:
   concepts:
