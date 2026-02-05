@@ -103,11 +103,11 @@ sources:
   - kind: mock
     id: demo-source
     autoStart: true
-    dataType: sensor
+    dataType: sensor_reading
     intervalMs: 2000
 ```
 
-This creates a source that generates sensor readings (temperature, humidity) every 2 seconds.
+This creates a source that simulates 5 sensors generating readings (temperature, humidity) every 2 seconds. The first reading for each sensor creates a new node; subsequent readings update that node.
 
 ### Add a Continuous Query
 
@@ -152,7 +152,7 @@ sources:
   - kind: mock
     id: demo-source
     autoStart: true
-    dataType: sensor
+    dataType: sensor_reading
     intervalMs: 2000
 
 queries:

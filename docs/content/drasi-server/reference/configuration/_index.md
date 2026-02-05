@@ -85,7 +85,7 @@ port: 8080
 sources:
   - kind: mock
     id: test
-    dataType: sensor
+    dataType: sensor_reading
 
 queries:
   - id: all-data

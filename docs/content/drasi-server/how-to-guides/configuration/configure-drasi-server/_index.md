@@ -590,7 +590,7 @@ persistIndex: false       # In-memory indexes (faster startup)
 sources:
   - kind: mock
     id: test-data
-    dataType: sensor
+    dataType: sensor_reading
     intervalMs: 1000      # Fast data generation
 ```
 
