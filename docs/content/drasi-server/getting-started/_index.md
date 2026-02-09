@@ -3,382 +3,63 @@ type: "docs"
 title: "Getting Started"
 linkTitle: "Getting Started"
 weight: 5
-description: "Get Drasi Server running in minutes"
-related:
-  concepts:
-    - title: "Drasi Overview"
-      url: "/concepts/overview/"
-    - title: "Sources"
-      url: "/concepts/sources/"
-    - title: "Continuous Queries"
-      url: "/concepts/continuous-queries/"
-    - title: "Reactions"
-      url: "/concepts/reactions/"
-  howto:
-    - title: "Configure Sources"
-      url: "/drasi-server/how-to-guides/configuration/configure-sources/"
-    - title: "Configure Reactions"
-      url: "/drasi-server/how-to-guides/configuration/configure-reactions/"
-  reference:
-    - title: "CLI Reference"
-      url: "/drasi-server/reference/cli/"
-    - title: "Configuration Reference"
-      url: "/drasi-server/reference/configuration/"
+no_list: true
+hide_readingtime: true
+description: "Build your first change-driven solution with Drasi Server"
 ---
 
-This guide walks you through getting Drasi Server running and creating your first continuous query. By the end, you'll have a working Drasi Server instance monitoring data changes and reacting to them.
+This tutorial will help you get Drasi Server up and running and show you how to create {{< term "Source" "Sources" >}}, {{< term "Continuous Query" "Continuous Queries" >}}, and {{< term "Reaction" "Reactions" >}}.
 
-## What You'll Learn
+After completing this tutorial (~20-30 minutes), you will have built a complete change-driven solution that captures changes from a PostgreSQL database and reacts to them in real-time.
 
-- How to download and run Drasi Server
-- How to create a configuration file with Sources, Queries, and Reactions
-- How to verify everything is working
-- How to interact with Drasi Server via its REST API
+## What You'll Build
 
-## Prerequisites
+You'll create a message tracking system that monitors a PostgreSQL database in real-time. The solution includes:
 
-Before starting, make sure you have:
+- A **PostgreSQL Source** that captures database changes via CDC (Change Data Capture)
+- Three **Continuous Queries** that filter, aggregate, and detect time-based patterns
+- **Reactions** that stream results to your browser and console
 
-- **One of these**: A terminal with `curl` (for binary download) OR Docker installed
-- **Basic familiarity** with YAML configuration files
-- **Optional**: Understanding of [Drasi concepts](/concepts/overview/) (Sources, Continuous Queries, Reactions)
+As you add, update, and delete messages in the database, you'll see the query results update automatically in real-time.
 
-{{< alert title="New to Drasi?" color="info" >}}
-If you're new to Drasi, that's fine! This guide uses a mock data source so you can see Drasi in action without connecting to a real database. You'll learn the concepts as you go.
-{{< /alert >}}
+## Choose How You Want to Get Started With Drasi Server
 
-## Get Drasi Server
-
-Choose one of the following options to get Drasi Server:
-
-{{< tabpane persist="header" >}}
-{{< tab header="Download Binary" lang="bash" >}}
-# macOS (Apple Silicon)
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-darwin-arm64.tar.gz | tar xz
-chmod +x drasi-server
-
-# macOS (Intel)
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-darwin-amd64.tar.gz | tar xz
-chmod +x drasi-server
-
-# Linux (x64)
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-linux-amd64.tar.gz | tar xz
-chmod +x drasi-server
-
-# Linux (ARM64)
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-linux-arm64.tar.gz | tar xz
-chmod +x drasi-server
-{{< /tab >}}
-{{< tab header="Docker" lang="bash" >}}
-docker pull ghcr.io/drasi-project/drasi-server:latest
-{{< /tab >}}
-{{< /tabpane >}}
-
-{{% alert title="Building from Source" color="info" %}}
-If you prefer to build Drasi Server from source, see the [Build from Source](/drasi-server/how-to-guides/installation/build-from-source/) guide.
-{{% /alert %}}
-
-## Create a Configuration File
-
-Drasi Server uses a YAML configuration file to define {{< term "Source" "Sources" >}} (where data comes from), {{< term "Continuous Query" "Continuous Queries" >}} (what changes to detect), and {{< term "Reaction" "Reactions" >}} (what to do when changes occur).
-
-Create a new file named `config.yaml` and add each section below.
-
-### Add Server Settings
-
-Start with basic server settings:
-
-```yaml
-host: 0.0.0.0
-port: 8080
-logLevel: info
-```
-
-### Add a Source
-
-Sources connect Drasi Server to your data. For this tutorial, we'll use a **mock source** that generates sample sensor data:
-
-```yaml
-sources:
-  - kind: mock
-    id: demo-source
-    autoStart: true
-    dataType: sensor_reading
-    intervalMs: 2000
-```
-
-This creates a source that simulates 5 sensors generating readings (temperature, humidity) every 2 seconds. The first reading for each sensor creates a new node; subsequent readings update that node.
-
-### Add a Continuous Query
-
-Continuous Queries define what data changes you want to monitor. Add a Continuous Query that watches all sensor data:
-
-```yaml
-queries:
-  - id: all-sensors
-    query: |
-      MATCH (s:SensorReading)
-      RETURN s.sensor_id, s.temperature, s.humidity, s.timestamp
-    sources:
-      - sourceId: demo-source
-    autoStart: true
-```
-
-This Continuous Query uses {{< term "openCypher" >}} to match all `SensorReading` {{< term "Node" "nodes" >}} and return their properties.
-
-### Add a Reaction
-
-Reactions define what happens when a Continuous Query's results change. Add a Log Reaction to output changes to the console:
-
-```yaml
-reactions:
-  - kind: log
-    id: console-output
-    queries:
-      - all-sensors
-    autoStart: true
-```
-
-### Complete Configuration
-
-Your complete `config.yaml` file should look like this:
-
-```yaml
-host: 0.0.0.0
-port: 8080
-logLevel: info
-
-sources:
-  - kind: mock
-    id: demo-source
-    autoStart: true
-    dataType: sensor_reading
-    intervalMs: 2000
-
-queries:
-  - id: all-sensors
-    query: |
-      MATCH (s:SensorReading)
-      RETURN s.sensor_id, s.temperature, s.humidity, s.timestamp
-    sources:
-      - sourceId: demo-source
-    autoStart: true
-
-reactions:
-  - kind: log
-    id: console-output
-    queries:
-      - all-sensors
-    autoStart: true
-```
-
-## Run Drasi Server
-
-Start Drasi Server with your configuration file:
-
-{{< tabpane persist="header" >}}
-{{< tab header="Binary" lang="bash" >}}
-./drasi-server --config config.yaml
-{{< /tab >}}
-{{< tab header="Docker" lang="bash" >}}
-docker run --rm -it \
-  --name drasi-server \
-  -p 8080:8080 \
-  -v $(pwd)/config.yaml:/config/config.yaml \
-  ghcr.io/drasi-project/drasi-server:latest \
-  --config /config/config.yaml
-{{< /tab >}}
-{{< /tabpane >}}
-
-You should see output like this:
-
-```
-[2026-01-12T22:20:28Z INFO  drasi_server] Starting Drasi Server
-[2026-01-12T22:20:28Z INFO  drasi_server] Config file: /config/config.yaml
-[2026-01-12T22:20:28Z INFO  drasi_server] Port: 8080
-...
-[2026-01-12T22:20:28Z INFO  drasi_server::server] Starting web API on 0.0.0.0:8080
-[2026-01-12T22:20:28Z INFO  drasi_server::server] API v1 available at http://0.0.0.0:8080/api/v1/
-[2026-01-12T22:20:28Z INFO  drasi_server::server] Swagger UI available at http://0.0.0.0:8080/api/v1/docs/
-[2026-01-12T22:20:28Z INFO  drasi_server::server] Drasi Server started successfully with API on port 8080
-```
-
-Every 2 seconds, the mock source generates new sensor data, the query detects the change, and the log reaction outputs the result like this:
-
-```
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [ADD] {"humidity":"49.597562498637316","sensor_id":"sensor_2","temperature":"20.904670200458263","timestamp":"2026-01-13T02:03:49.880559+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [ADD] {"humidity":"52.12288411730867","sensor_id":"sensor_1","temperature":"21.993493026464385","timestamp":"2026-01-13T02:03:51.882287+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [UPDATE] {"humidity":"52.12288411730867","sensor_id":"sensor_1","temperature":"21.993493026464385","timestamp":"2026-01-13T02:03:51.882287+00:00"} -> {"humidity":"55.46429973696152","sensor_id":"sensor_1","temperature":"20.64979756129898","timestamp":"2026-01-13T02:03:53.882430+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [UPDATE] {"humidity":"40.44525294610261","sensor_id":"sensor_4","temperature":"24.062226270290086","timestamp":"2026-01-13T02:03:47.881694+00:00"} -> {"humidity":"48.72444652395867","sensor_id":"sensor_4","temperature":"22.79714222963862","timestamp":"2026-01-13T02:03:55.881525+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [UPDATE] {"humidity":"48.72444652395867","sensor_id":"sensor_4","temperature":"22.79714222963862","timestamp":"2026-01-13T02:03:55.881525+00:00"} -> {"humidity":"49.48011637466249","sensor_id":"sensor_4","temperature":"27.065236611653194","timestamp":"2026-01-13T02:03:57.882055+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [ADD] {"humidity":"51.33780369006803","sensor_id":"sensor_3","temperature":"26.786339702814317","timestamp":"2026-01-13T02:03:59.882022+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [UPDATE] {"humidity":"49.597562498637316","sensor_id":"sensor_2","temperature":"20.904670200458263","timestamp":"2026-01-13T02:03:49.880559+00:00"} -> {"humidity":"47.39639661702978","sensor_id":"sensor_2","temperature":"27.119829345535607","timestamp":"2026-01-13T02:04:01.881317+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [UPDATE] {"humidity":"49.48011637466249","sensor_id":"sensor_4","temperature":"27.065236611653194","timestamp":"2026-01-13T02:03:57.882055+00:00"} -> {"humidity":"46.11804098462849","sensor_id":"sensor_4","temperature":"26.902895834274503","timestamp":"2026-01-13T02:04:03.881792+00:00"}
-[console-output] Query 'all-sensors' (1 items):
-[console-output]   [UPDATE] {"humidity":"47.39639661702978","sensor_id":"sensor_2","temperature":"27.119829345535607","timestamp":"2026-01-13T02:04:01.881317+00:00"} -> {"humidity":"57.09494971225041","sensor_id":"sensor_2","temperature":"29.94252332023011","timestamp":"2026-01-13T02:04:05.881658+00:00"}
-```
-
-## Interact with Drasi Server
-
-While Drasi Server is running, you can interact with it through the REST API.
-
-### Query Current Results
-
-Open a new terminal and retrieve the current query results:
-
-```bash
-curl http://localhost:8080/api/v1/queries/all-sensors/results
-```
-
-This returns the current results of the `all-sensors` query in JSON format, like this:
-
-```
-{"success":true,"data":[{"humidity":"46.11804098462849","sensor_id":"sensor_4","temperature":"26.902895834274503","timestamp":"2026-01-13T02:04:03.881792+00:00"},{"humidity":"47.39639661702978","sensor_id":"sensor_2","temperature":"27.119829345535607","timestamp":"2026-01-13T02:04:01.881317+00:00"},{"humidity":"55.46429973696152","sensor_id":"sensor_1","temperature":"20.64979756129898","timestamp":"2026-01-13T02:03:53.882430+00:00"},{"humidity":"51.33780369006803","sensor_id":"sensor_3","temperature":"26.786339702814317","timestamp":"2026-01-13T02:03:59.882022+00:00"}],"error":null}
-```
-
-### Check Server Health
-
-Verify the server is healthy:
-
-```bash
-curl http://localhost:8080/health
-```
-
-### Explore the API
-
-Open the interactive API documentation in your browser:
-
-```
-http://localhost:8080/api/v1/docs/
-```
-
-This Swagger UI lets you explore and test all available API endpoints.
-
-### View Source and Query Status
-
-Check the status of your sources and queries:
-
-```bash
-# List all sources
-curl http://localhost:8080/api/v1/sources
-
-# List all queries
-curl http://localhost:8080/api/v1/queries
-
-# Get details for a specific query
-curl http://localhost:8080/api/v1/queries/all-sensors
-```
-
-## Stop Drasi Server
-
-To stop the server:
-
-{{< tabpane persist="header" >}}
-{{< tab header="Binary" lang="bash" >}}
-# Press Ctrl+C in the terminal where the server is running
-{{< /tab >}}
-{{< tab header="Docker" lang="bash" >}}
-# Press Ctrl+C, or in another terminal:
-docker stop drasi-server
-{{< /tab >}}
-{{< /tabpane >}}
-
-## Understanding How It Works
-
-Now that you've seen Drasi Server in action, here's what happened:
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Mock Source   │────▶│  Continuous     │────▶│   Log Reaction  │
-│   (demo-source) │     │  Query          │     │  (console-out)  │
-│                 │     │  (all-sensors)  │     │                 │
-│ Generates fake  │     │ Matches all     │     │ Prints changes  │
-│ sensor data     │     │ SensorReading   │     │ to stdout       │
-│ every 2 seconds │     │ nodes           │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-```
-
-1. **Source** — The mock source generates synthetic sensor data (temperature, humidity) on a timer. In real applications, you'd use a PostgreSQL, HTTP, or gRPC source to ingest real data.
-
-2. **Continuous Query** — The query runs continuously against the data graph. When data changes, the query re-evaluates and emits the differences (adds, updates, deletes).
-
-3. **Reaction** — The log reaction subscribes to query result changes and outputs them. You could instead use HTTP (webhooks), SSE (real-time dashboards), or gRPC (microservices).
-
-This is the core Drasi pattern: **Sources feed data → Queries detect changes → Reactions act on them**.
-
-## Troubleshooting
-
-### Server won't start
-
-**Error: "Address already in use"**
-- Another process is using port 8080
-- Solution: Stop the other process, or change the port in your config (`port: 9090`)
-
-**Error: "Configuration file not found"**
-- Drasi Server can't find `config.yaml`
-- Solution: Check the path in your `--config` argument, or run from the directory containing the file
-
-**Error: Unknown field or invalid key**
-- YAML keys must be camelCase (e.g., `logLevel`, not `log_level`)
-- Run `drasi-server validate --config config.yaml` to check your configuration
-
-### No output from the log reaction
-
-- Verify all components have `autoStart: true`
-- Check that the query's `sources` array references the correct `sourceId`
-- Look for errors in the server startup logs
-
-### Docker: Can't connect to localhost:8080
-
-- Ensure port mapping is correct: `-p 8080:8080`
-- On Linux, try using `--network host` or the container's IP address
-
-## Next Steps
-
-Now that you have Drasi Server running, explore these topics:
+There are multiple ways to set up Drasi Server. Each approach will guide you through the same hands-on tutorial, but you can choose the method that best fits your preferences and environment.
 
 <div class="card-grid">
-  <a href="../how-to-guides/configuration/configure-sources/">
-    <div class="unified-card unified-card--howto">
-      <div class="unified-card-icon"><i class="fas fa-database"></i></div>
+  <a href="download-binary/">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fas fa-download"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">Configure Sources</h3>
-        <p class="unified-card-summary">Connect to PostgreSQL, HTTP endpoints, gRPC streams, and more</p>
+        <h3 class="unified-card-title">Download Binary</h3>
+        <p class="unified-card-summary">Download a prebuilt binary for macOS or Linux. The fastest way to get started.</p>
       </div>
     </div>
   </a>
-  <a href="../how-to-guides/configuration/configure-reactions/">
-    <div class="unified-card unified-card--howto">
-      <div class="unified-card-icon"><i class="fas fa-bolt"></i></div>
+  <a href="build-from-source/">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fas fa-hammer"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">Configure Reactions</h3>
-        <p class="unified-card-summary">Set up webhooks, SSE streams, gRPC outputs, and logging</p>
+        <h3 class="unified-card-title">Build from Source</h3>
+        <p class="unified-card-summary">Clone and build Drasi Server yourself. Ideal for contributors.</p>
       </div>
     </div>
   </a>
-  <a href="../how-to-guides/configuration/configure-drasi-server/">
-    <div class="unified-card unified-card--howto">
-      <div class="unified-card-icon"><i class="fas fa-cogs"></i></div>
+  <a href="github-codespace/">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fab fa-github"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">Server Configuration</h3>
-        <p class="unified-card-summary">Deep dive into all configuration options</p>
+        <h3 class="unified-card-title">GitHub Codespace</h3>
+        <p class="unified-card-summary">One-click cloud environment. No local installation needed.</p>
       </div>
     </div>
   </a>
-  <a href="/concepts/overview/">
-    <div class="unified-card unified-card--concepts">
-      <div class="unified-card-icon"><i class="fas fa-lightbulb"></i></div>
+  <a href="dev-container/">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fas fa-cube"></i></div>
       <div class="unified-card-content">
-        <h3 class="unified-card-title">Learn Concepts</h3>
-        <p class="unified-card-summary">Understand how Drasi works under the hood</p>
+        <h3 class="unified-card-title">Dev Container</h3>
+        <p class="unified-card-summary">VS Code Dev Container with all dependencies preconfigured.</p>
       </div>
     </div>
   </a>
