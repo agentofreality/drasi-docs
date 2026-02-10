@@ -111,10 +111,17 @@ During database setup, the `Message` table was populated with these messages:
 
 ### Initialize the Database
 
-Once the container is running, initialize the database schema and sample data:
+Once the container is running, initialize the database schema and sample data.
+
+Copy the `init.sql` script into the container:
 
 ```bash
 docker cp examples/getting-started/database/init.sql getting-started-postgres:/tmp/
+```
+
+Run the initialization script inside the container:
+
+```bash
 docker exec getting-started-postgres psql -U postgres -d getting_started -f /tmp/init.sql
 ```
 
@@ -122,8 +129,8 @@ You should see output ending with:
 ```
 NOTICE:  Getting Started database initialized successfully!
 NOTICE:  Tables: message
-NOTICE:  Publication: drasi_getting_started_pub
-NOTICE:  Replication slot: drasi_getting_started_slot
+NOTICE:  Publication: drasi_pub
+NOTICE:  Replication slot: drasi_slot
 ```
 
 ---
