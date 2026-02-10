@@ -66,7 +66,7 @@ After completing your preferred setup, return here to continue with the tutorial
 
 ---
 
-## Step 2: Start the Tutorial Database {#database}
+## Step 2: Setup the Tutorial Database {#database}
 
 The tutorial uses a PostgreSQL database. Start the database container using Docker Compose:
 
@@ -89,9 +89,11 @@ getting-started-postgres   postgres:16   "docker-entrypoint.s…"   postgres   1
 
 If the container shows a different status or you see errors, check the container logs with `docker compose -f examples/getting-started/database/docker-compose.yml logs`. See the [Docker Compose documentation](https://docs.docker.com/compose/how-tos/troubleshoot/) for additional troubleshooting help.
 
-### Tutorial Data
+### Initialize the Database
 
-The database is configured with a simple `Message` table with the following schema:
+Once the container is running, initialize the database schema and sample data.
+
+The tutorial uses a simple `Message` table with the following schema:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -100,7 +102,9 @@ The database is configured with a simple `Message` table with the following sche
 | Message | varchar(200) | The message content |
 | created_at | timestamp | When the message was sent |
 
-During database setup, the `Message` table was populated with these messages:
+<div style="margin-top: 1.5rem;"></div>
+
+The `Message` table is initially populated with these messages:
 
 | MessageId | From | Message |
 |-----------|------|---------|
@@ -109,9 +113,7 @@ During database setup, the `Message` table was populated with these messages:
 | 3 | Antoninus | I am Spartacus |
 | 4 | David | I am Spartacus |
 
-### Initialize the Database
-
-Once the container is running, initialize the database schema and sample data.
+<div style="margin-top: 1.5rem;"></div>
 
 Copy the `init.sql` script into the container:
 
@@ -144,7 +146,7 @@ Now you'll create your own Drasi Server configuration using the interactive `dra
 Make sure you're in the tutorial root folder and run the following command:
 
 ```bash
-./drasi-server init --output my-config.yaml
+./bin/drasi-server init --output my-config.yaml
 ```
 
 The `init` command walks you through an interactive wizard that will assist you in creating a correctly formatted Drasi Server config file. Here's what to enter at each prompt:
@@ -176,6 +178,9 @@ After selecting PostgreSQL, you'll configure the database connection settings:
 | **Database user** | `drasi_user` | |
 | **Database password** | `drasi_password` | Type the password (characters won't display) and press Enter |
 | **Tables to monitor** | `message` | The table we'll query |
+| **Configure table keys for tables without primary keys??** | `Yes` | Required for CDC change tracking |
+| **Does table 'message' need key columns specified?** | `Yes` | Need to configure tableKey for `message` table |
+| **Key columns for 'message'** | `messageid` | The message table's primary key |
 | **Bootstrap provider** | `PostgreSQL` | Use arrow keys to select "PostgreSQL - Load initial data" |
 
 #### 3. Reactions
@@ -219,18 +224,18 @@ queries:
   - id: my-query
     autoStart: true
     query: |
-      MATCH (m:Message)
+      MATCH (m:message)
       RETURN m.messageid AS messageid, m.from AS from, m.message AS message
     queryLanguage: GQL
     ...
 ```
 
-The `|` character allows you to write the query across multiple lines for readability. Leave the other fields (`queryLanguage`, `sources`, etc.) as they are.
+The `|` character allows you to write the query across multiple lines for readability. The label `message` must match the table name exactly (labels are case-sensitive). Leave the other fields (`queryLanguage`, `sources`, etc.) as they are.
 
 ### Run Drasi Server
 
 ```bash
-./drasi-server --config my-config.yaml
+./bin/drasi-server --config my-config.yaml
 ```
 
 You should see startup logs followed by the initial query results:
@@ -276,12 +281,26 @@ queries:
   # ... your existing query ...
   
   - id: hello-world-senders
+    autoStart: true
     sources:
       - sourceId: my-postgres  # Use the source ID you created
     query: |
-      MATCH (m:Message)
+      MATCH (m:message)
       WHERE m.message = 'Hello World'
       RETURN m.messageid AS Id, m.from AS Sender
+    queryLanguage: Cypher
+```
+
+Then update the `reactions:` section to subscribe to the new query:
+
+```yaml
+reactions:
+  - kind: log
+    id: log-reaction
+    queries:
+      - my-query
+      - hello-world-senders  # Add the new query
+    autoStart: true
 ```
 
 ### Validate Your Changes
@@ -289,7 +308,7 @@ queries:
 Before running, validate the configuration to catch any errors:
 
 ```bash
-./drasi-server validate --config my-config.yaml
+./bin/drasi-server validate --config my-config.yaml
 ```
 
 If there are errors (typos, invalid syntax), you'll see helpful messages. Fix them before proceeding.
@@ -299,7 +318,7 @@ If there are errors (typos, invalid syntax), you'll see helpful messages. Fix th
 Stop the running server (`Ctrl+C`) and restart:
 
 ```bash
-./drasi-server --config my-config.yaml
+./bin/drasi-server --config my-config.yaml
 ```
 
 Now you have two queries running. The new `hello-world-senders` query only shows Brian Kernighan (the one who sent "Hello World").
@@ -350,18 +369,33 @@ queries:
   # ... existing queries ...
   
   - id: message-counts
+    autoStart: true
     sources:
       - sourceId: my-postgres
     query: |
-      MATCH (m:Message)
+      MATCH (m:message)
       RETURN m.message AS Message, count(m) AS Count
+    queryLanguage: Cypher
+```
+
+Update the `reactions:` section to include the new query:
+
+```yaml
+reactions:
+  - kind: log
+    id: log-reaction
+    queries:
+      - my-query
+      - hello-world-senders
+      - message-counts  # Add the new query
+    autoStart: true
 ```
 
 ### Validate and Run
 
 ```bash
-./drasi-server validate --config my-config.yaml
-./drasi-server --config my-config.yaml
+./bin/drasi-server validate --config my-config.yaml
+./bin/drasi-server --config my-config.yaml
 ```
 
 You'll see the aggregated counts in the initial output:
@@ -405,20 +439,36 @@ queries:
   # ... existing queries ...
   
   - id: inactive-senders
+    autoStart: true
     sources:
       - sourceId: my-postgres
     query: |
-      MATCH (m:Message)
+      MATCH (m:message)
       WITH m.from AS Sender, max(m.created_at) AS LastSeen
       WHERE LastSeen < datetime() - duration('PT20S')
       RETURN Sender, LastSeen
+    queryLanguage: Cypher
+```
+
+Update the `reactions:` section to include the new query:
+
+```yaml
+reactions:
+  - kind: log
+    id: log-reaction
+    queries:
+      - my-query
+      - hello-world-senders
+      - message-counts
+      - inactive-senders  # Add the new query
+    autoStart: true
 ```
 
 ### Validate and Run
 
 ```bash
-./drasi-server validate --config my-config.yaml
-./drasi-server --config my-config.yaml
+./bin/drasi-server validate --config my-config.yaml
+./bin/drasi-server --config my-config.yaml
 ```
 
 ### Wait and Observe
@@ -457,18 +507,21 @@ reactions:
   
   - kind: sse
     id: browser-stream
+    autoStart: true
     queries:
       - hello-world-senders
       - message-counts
       - inactive-senders
+    host: 0.0.0.0
     port: 8081
+    ssePath: /events
 ```
 
 ### Validate and Run
 
 ```bash
-./drasi-server validate --config my-config.yaml
-./drasi-server --config my-config.yaml
+./bin/drasi-server validate --config my-config.yaml
+./bin/drasi-server --config my-config.yaml
 ```
 
 ### View in Browser
@@ -497,18 +550,142 @@ docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -
 
 ---
 
+## Step 8: Add Cross-Source Joins {#phase-6}
+
+So far you've used a single PostgreSQL source. Now you'll add an HTTP source and join data across both sources.
+
+**Scenario**: Track where message senders are currently located and their availability status. Imagine the HTTP source receives location updates from a mobile app or badge system.
+
+### Add an HTTP Source
+
+Edit `my-config.yaml` and add a second source:
+
+```yaml
+sources:
+  # ... existing postgres source ...
+  
+  - kind: http
+    id: location-tracker
+    autoStart: true
+    host: 0.0.0.0
+    port: 9000
+    bootstrapProvider:
+      kind: script
+      path: examples/getting-started/locations.json
+```
+
+The `bootstrapProvider` loads initial location data from a JSON file on startup.
+
+### Add a Join Query
+
+Add a query that joins messages with user locations:
+
+```yaml
+queries:
+  # ... existing queries ...
+  
+  - id: messages-with-location
+    autoStart: true
+    sources:
+      - sourceId: my-postgres
+      - sourceId: location-tracker
+    query: |
+      MATCH (m:message)-[:FROM_USER]->(u:UserLocation)
+      RETURN m.messageid AS Id, m.message AS Message, 
+             m.from AS Sender, u.location AS Location, u.status AS Status
+    queryLanguage: Cypher
+    joins:
+      - id: FROM_USER
+        keys:
+          - label: message
+            property: from
+          - label: UserLocation
+            property: name
+```
+
+The `joins` section creates a virtual relationship `FROM_USER` that connects `message.from` to `UserLocation.name`.
+
+Update the `log-reaction` to include the new query:
+
+```yaml
+reactions:
+  - kind: log
+    id: log-reaction
+    queries:
+      - my-query
+      - hello-world-senders
+      - message-counts
+      - inactive-senders
+      - messages-with-location  # Add the new query
+    autoStart: true
+```
+
+### Validate and Run
+
+```bash
+./bin/drasi-server validate --config my-config.yaml
+./bin/drasi-server --config my-config.yaml
+```
+
+On startup, the bootstrap loads location data for 4 users. You'll see the joined output:
+
+```
+[messages-with-location] + {"Id":2,"Message":"Hello World","Sender":"Brian Kernighan","Location":"Building A, Floor 3","Status":"online"}
+[messages-with-location] + {"Id":1,"Message":"To infinity and beyond!","Sender":"Buzz Lightyear","Location":"Space Station","Status":"away"}
+```
+
+### Update Location in Real-Time
+
+Simulate Brian moving to a new location by sending an update to the HTTP source:
+
+```bash
+curl -X POST http://localhost:9000 -H "Content-Type: application/json" -d '{
+  "op": "update", "label": "UserLocation", "id": "brian",
+  "properties": {"name": "Brian Kernighan", "location": "Conference Room B", "status": "away"}
+}'
+```
+
+Watch the console — Brian's messages now show the new location:
+
+```
+[messages-with-location] - {"Id":2,"Message":"Hello World","Sender":"Brian Kernighan","Location":"Building A, Floor 3","Status":"online"}
+[messages-with-location] + {"Id":2,"Message":"Hello World","Sender":"Brian Kernighan","Location":"Conference Room B","Status":"away"}
+```
+
+### Add a New User Location
+
+When a new user starts sending messages, add their location:
+
+```bash
+# First, send a message from a new user
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO message (\"from\", message) VALUES ('Alice', 'Good morning!');"
+
+# Then add Alice's location
+curl -X POST http://localhost:9000 -H "Content-Type: application/json" -d '{
+  "op": "insert", "label": "UserLocation", "id": "alice",
+  "properties": {"name": "Alice", "location": "Home Office", "status": "online"}
+}'
+```
+
+Alice's message appears in the joined query once her location is added.
+
+**✅ Checkpoint**: You understand how to join data across multiple sources using virtual relationships. Changes to either source propagate through the join in real-time.
+
+---
+
 ## What You've Learned {#summary}
 
 You built a complete change-driven solution from scratch:
 
 | Concept | What You Did |
 |---------|-------------|
-| **Sources** | Created a PostgreSQL Source that captures changes via CDC |
-| **Queries** | Wrote 4 Continuous Queries: simple retrieval, filtering, aggregation, and time-based detection |
+| **Sources** | Created PostgreSQL and HTTP sources to capture changes from different systems |
+| **Queries** | Wrote 5 Continuous Queries: simple retrieval, filtering, aggregation, time-based detection, and cross-source joins |
 | **Reactions** | Configured Log and SSE reactions to output to console and browser |
+| **Joins** | Connected data across sources using virtual relationships |
 | **Configuration** | Used `drasi-server init` to scaffold, then manually edited to add components |
 | **Validation** | Used `drasi-server validate` to catch errors before running |
-| **Workflow** | Practiced the edit → validate → run cycle you'll use in real projects |
 
 The core Drasi pattern: **Sources feed data → Queries detect changes → Reactions act on them**.
 
@@ -521,14 +698,10 @@ Stop Drasi Server with `Ctrl+C`.
 Stop the tutorial database:
 
 ```bash
-docker compose -f database/docker-compose.yml down
+docker compose -f examples/getting-started/database/docker-compose.yml down -v
 ```
 
-To remove database data completely:
-
-```bash
-docker compose -f database/docker-compose.yml down -v
-```
+The `-v` flag removes the persistent volume. Without it, the database data persists after the container is removed and can cause confusion if you restart the tutorial later.
 
 ---
 

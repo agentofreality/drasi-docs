@@ -282,6 +282,11 @@ Use the `init` command to create a configuration file interactively:
 drasi-server init --output config/server.yaml
 ```
 
+The wizard guides you through:
+- **Server settings** — Host, port, log level, persistence options
+- **Sources** — Database connections with table selection and primary key configuration
+- **Reactions** — Output destinations for query results
+
 Options:
 - `--output`, `-o`: Output path (default: `config/server.yaml`)
 - `--force`: Overwrite existing file

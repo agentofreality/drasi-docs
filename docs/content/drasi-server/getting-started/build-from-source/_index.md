@@ -10,9 +10,17 @@ Build Drasi Server from source. This approach is ideal for contributors or if yo
 
 ## Prerequisites
 
+- **Git** — [Install Git](https://git-scm.com/downloads)
 - **Docker** — Required for the tutorial database ([Install Docker Desktop](https://www.docker.com/products/docker-desktop/))
-- **Git** — For cloning the repository
 - **Rust 1.88+** — For building Drasi Server ([Install via rustup](https://rustup.rs/))
+
+### Verify Git is Installed
+
+```bash
+git --version
+```
+
+You should see output like `git version 2.x.x`. If you see "command not found", install Git from the link above.
 
 ### Verify Docker is Running
 
@@ -28,7 +36,7 @@ CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
 
 If you see an error like `Cannot connect to the Docker daemon`, Docker isn't running. Start Docker Desktop and wait for it to fully initialize, then try again. If problems persist, see the [Docker troubleshooting guide](https://docs.docker.com/desktop/troubleshoot-and-support/troubleshoot/) for additional help.
 
-### Verify Rust prerequisites
+### Verify Rust is Installed
 
 ```bash
 rustc --version   # Should be 1.88.0 or later
@@ -37,66 +45,35 @@ cargo --version
 
 ## Step 1: Clone and Build
 
-Clone the repository:
+Clone the repository and build Drasi Server:
 
 ```bash
 git clone https://github.com/drasi-project/drasi-server.git
 cd drasi-server
+cargo install --path . --root . --locked
 ```
-
-Build in release mode:
-
-```bash
-cargo build --release
-```
-
 This takes several minutes on first build.
 
-## Step 2: Create Symlink
+The `--root .` flag tells Cargo to install the Drasi Server binary to `./bin/drasi-server` in the current directory, which is where the tutorial expects it.
 
-Create a symlink so the binary is accessible from the repository root:
+## Step 2: Verify the Build
+
+Verify the binary works:
 
 ```bash
-ln -sf ./target/release/drasi-server ./drasi-server
+./bin/drasi-server --version
 ```
 
-Verify the symlink works:
+You should see output showing the version number, for example:
 
-```bash
-./drasi-server --version
+```
+drasi-server 0.1.0
 ```
 
 ---
 
-## ✅ Setup Complete!
+## ✅ Environment Setup Complete!
 
-You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
+You now have Drasi Server accessible at `./bin/drasi-server` from the repository root.
 
-<div class="card-grid">
-  <a href="../#database">
-    <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Continue with the Tutorial</h3>
-        <p class="unified-card-summary">Create your first change-driven solution.</p>
-      </div>
-    </div>
-  </a>
-</div>
-
----
-
-## Development Tips
-
-These commands are useful when contributing to Drasi Server:
-
-```bash
-# Rebuild after code changes
-cargo build --release
-
-# Run with debug logging
-RUST_LOG=debug ./target/release/drasi-server --config my-config.yaml
-
-# Run tests
-cargo test
-```
+<p><a href="../#database" class="btn btn-success btn-lg">Continue with the Tutorial <i class="fas fa-arrow-right ms-2"></i></a></p>

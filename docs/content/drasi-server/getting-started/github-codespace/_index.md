@@ -31,8 +31,7 @@ Or manually:
 
 The Codespace takes a few minutes to initialize. The setup script will:
 1. Install PostgreSQL client
-2. Build Drasi Server in release mode
-3. Create a symlink at `./drasi-server` for easy access
+2. Build and install Drasi Server to `./bin/drasi-server`
 
 Watch the terminal for: **"Drasi Server Getting Started tutorial environment is ready!"**
 
@@ -45,26 +44,22 @@ The first build takes several minutes. Subsequent Codespace sessions are faster 
 Verify that Drasi Server is accessible:
 
 ```bash
-./drasi-server --version
+./bin/drasi-server --version
+```
+
+You should see output showing the version number, for example:
+
+```
+drasi-server 0.1.0
 ```
 
 ---
 
-## ✅ Setup Complete!
+## ✅ Environment Setup Complete!
 
-You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
+You now have Drasi Server accessible at `./bin/drasi-server` from the repository root.
 
-<div class="card-grid">
-  <a href="../#database">
-    <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Continue with the Tutorial</h3>
-        <p class="unified-card-summary">Create your first change-driven solution.</p>
-      </div>
-    </div>
-  </a>
-</div>
+<p><a href="../#database" class="btn btn-success btn-lg">Continue with the Tutorial <i class="fas fa-arrow-right ms-2"></i></a></p>
 
 ---
 

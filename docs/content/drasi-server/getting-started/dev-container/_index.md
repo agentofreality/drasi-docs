@@ -12,14 +12,17 @@ Use VS Code Dev Containers for a consistent development environment with all dep
 
 - **Git** — [Install Git](https://git-scm.com/downloads)
 - **Docker Desktop** — [Install Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux)
+  - Recommended resources: 4+ CPU cores, 8+ GB memory
 - **VS Code** — [Install Visual Studio Code](https://code.visualstudio.com/)
 - **Dev Containers extension** — [Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-### Recommended Docker Resources
+### Verify Git is Installed
 
-For optimal performance, allocate to Docker:
-- **CPU**: 4+ cores
-- **Memory**: 8+ GB
+```bash
+git --version
+```
+
+You should see output like `git version 2.x.x`. If you see "command not found", install Git from the link above.
 
 ### Verify Docker is Running
 
@@ -63,8 +66,7 @@ If you don't see the notification described, press `F1` and type "Dev Containers
 
 The container takes several minutes to build on first run. The setup script will:
 1. Install PostgreSQL client
-2. Build Drasi Server in release mode
-3. Create a symlink at `./drasi-server` for easy access to the Drasi Server binary.
+2. Build and install Drasi Server to `./bin/drasi-server`
 
 Watch the terminal for: **"Drasi Server Getting Started tutorial environment is ready!"**
 
@@ -73,7 +75,7 @@ Watch the terminal for: **"Drasi Server Getting Started tutorial environment is 
 Verify that Drasi Server is accessible running the following command in the terminal:
 
 ```bash
-./drasi-server --version
+./bin/drasi-server --version
 ```
 
 You should see output showing the version number, for example:
@@ -86,21 +88,11 @@ If you see a "file not found" error, the build may not have completed. Check the
 
 ---
 
-## ✅ Setup Complete!
+## ✅ Environment Setup Complete!
 
-You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
+You now have Drasi Server accessible at `./bin/drasi-server` from the repository root.
 
-<div class="card-grid">
-  <a href="../#database">
-    <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Continue with the Tutorial</h3>
-        <p class="unified-card-summary">Create your first change-driven solution.</p>
-      </div>
-    </div>
-  </a>
-</div>
+<p><a href="../#database" class="btn btn-success btn-lg">Continue with the Tutorial <i class="fas fa-arrow-right ms-2"></i></a></p>
 
 ---
 

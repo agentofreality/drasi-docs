@@ -10,9 +10,9 @@ This is the fastest way to get started with Drasi Server. Download a prebuilt bi
 
 ## Prerequisites
 
+- **Git** — [Install Git](https://git-scm.com/downloads)
 - **Docker** — Required for the tutorial database ([Install Docker Desktop](https://www.docker.com/products/docker-desktop/))
 - **curl** and **tar** — For downloading and extracting the binary
-- **Git** — For cloning the tutorial files
 
 ### Verify Docker is Running
 
@@ -39,47 +39,47 @@ cd drasi-server
 
 ## Step 2: Download Drasi Server
 
-Download the binary for your platform into the repository root:
+Create the bin directory and download the binary for your platform:
 
 {{< tabpane persist="header" >}}
 {{< tab header="macOS (Apple Silicon)" lang="bash" >}}
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-darwin-arm64.tar.gz | tar xz
-chmod +x drasi-server
+mkdir -p bin
+curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-darwin-arm64.tar.gz | tar xz -C bin
+chmod +x bin/drasi-server
 {{< /tab >}}
 {{< tab header="macOS (Intel)" lang="bash" >}}
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-darwin-amd64.tar.gz | tar xz
-chmod +x drasi-server
+mkdir -p bin
+curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-darwin-amd64.tar.gz | tar xz -C bin
+chmod +x bin/drasi-server
 {{< /tab >}}
 {{< tab header="Linux (x64)" lang="bash" >}}
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-linux-amd64.tar.gz | tar xz
-chmod +x drasi-server
+mkdir -p bin
+curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-linux-amd64.tar.gz | tar xz -C bin
+chmod +x bin/drasi-server
 {{< /tab >}}
 {{< tab header="Linux (ARM64)" lang="bash" >}}
-curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-linux-arm64.tar.gz | tar xz
-chmod +x drasi-server
+mkdir -p bin
+curl -sL https://github.com/drasi-project/drasi-server/releases/latest/download/drasi-server-linux-arm64.tar.gz | tar xz -C bin
+chmod +x bin/drasi-server
 {{< /tab >}}
 {{< /tabpane >}}
 
 Verify the download:
 
 ```bash
-./drasi-server --version
+./bin/drasi-server --version
+```
+
+You should see output showing the version number, for example:
+
+```
+drasi-server 0.1.0
 ```
 
 ---
 
-## ✅ Setup Complete!
+## ✅ Environment Setup Complete!
 
-You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
+You now have Drasi Server accessible at `./bin/drasi-server` from the repository root.
 
-<div class="card-grid">
-  <a href="../#database">
-    <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Continue with the Tutorial</h3>
-        <p class="unified-card-summary">Create your first change-driven solution.</p>
-      </div>
-    </div>
-  </a>
-</div>
+<p><a href="../#database" class="btn btn-success btn-lg">Continue with the Tutorial <i class="fas fa-arrow-right ms-2"></i></a></p>
