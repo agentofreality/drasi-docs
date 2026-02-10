@@ -168,7 +168,6 @@ drasi-server doctor
 |------------|----------|-------------|
 | Rust | Yes | Rust toolchain |
 | Git | Yes | Git version control |
-| Submodules | Yes | Git submodules initialized |
 | Docker | No | Container runtime |
 | Docker Compose | No | Multi-container orchestration |
 | curl | No | HTTP client |

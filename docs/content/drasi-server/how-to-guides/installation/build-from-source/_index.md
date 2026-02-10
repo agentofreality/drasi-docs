@@ -20,7 +20,7 @@ Building {{< term "Drasi Server" >}} from source gives you full control over the
 ## Prerequisites
 
 - [Rust](https://www.rust-lang.org/tools/install) 1.88 or later
-- Git with submodule support
+- Git
 - C compiler (for native dependencies)
 
 ### Install Rust
