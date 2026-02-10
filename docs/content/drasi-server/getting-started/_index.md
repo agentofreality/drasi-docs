@@ -68,7 +68,7 @@ After completing your preferred setup, return here to continue with the tutorial
 
 ## Step 2: Start the Tutorial Database {#database}
 
-The tutorial uses a PostgreSQL database. Start the database using the following Docker Compose command:
+The tutorial uses a PostgreSQL database. Start the database in Docker using the following Docker Compose command:
 
 ```bash
 docker compose -f examples/getting-started/database/docker-compose.yml up -d
