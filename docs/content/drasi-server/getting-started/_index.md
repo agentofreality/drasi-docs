@@ -14,8 +14,8 @@ This Getting Started tutorial teaches you how to use Drasi Server by demonstrati
 
 **What you'll learn**:
 - How to create a Source that connects to PostgreSQL
-- How to write Continuous Queries that filter, aggregate, and detect patterns over time
-- How to configure Reactions that output to console and browser
+- How to write Continuous Queries that detect specific changes, track aggregations, and identify patterns over time
+- How to configure Reactions that notify downstream systems of query result changes
 
 ## Step 1: Set Up Your Environment {#setup}
 
@@ -322,9 +322,9 @@ Watch the Drasi Server console — notification of a change to the `my-query` Co
 
 ---
 
-## Step 4: Add a Filtered Query {#phase-2}
+## Step 4: Add a Query with Criteria {#phase-2}
 
-Now you'll edit your configuration to add a query that filters the change stream.
+Now you'll edit your configuration to add a query that only includes specific data in its result set.
 
 ### Edit Your Config
 
@@ -377,10 +377,10 @@ Stop the running server (`Ctrl+C`) and restart:
 
 Now you have two queries running. The new `hello-world-senders` query only shows Brian Kernighan (the one who sent "Hello World").
 
-### Test Filtering
+### Test the Query Criteria
 
 ```bash
-# This WILL appear in hello-world-senders (matches the filter)
+# This WILL appear in hello-world-senders (meets the WHERE criteria)
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO message (\"from\", message) VALUES ('Alice', 'Hello World');"
 ```
@@ -391,10 +391,10 @@ Watch the console:
 [hello-world-senders] + {"Id":6,"Sender":"Alice"}
 ```
 
-Now try a message that doesn't match:
+Now try a message that doesn't match the criteria:
 
 ```bash
-# This will NOT appear in hello-world-senders (different message)
+# This will NOT appear in hello-world-senders (different message text)
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO message (\"from\", message) VALUES ('Bob', 'Goodbye World');"
 ```
@@ -404,9 +404,9 @@ The console shows:
 [my-query] + {"messageid":7,"from":"Bob","message":"Goodbye World"}
 ```
 
-Notice that `hello-world-senders` didn't output anything — the `WHERE` clause filtered it out.
+Notice that `hello-world-senders` didn't produce any output — the new message doesn't meet the `WHERE` criteria, so it isn't part of the query's result set. The Reaction is only notified of changes to the result set.
 
-**✅ Checkpoint**: You understand how Cypher `WHERE` clauses filter which changes trigger reactions. Only matching changes produce output.
+**✅ Checkpoint**: You understand how Cypher `WHERE` clauses define which data is meaningful to a Continuous Query. Changes that don't affect the query's result set don't generate notifications.
 
 ---
 
@@ -580,7 +580,7 @@ reactions:
 
 ### View in Browser
 
-Open **http://localhost:8081** in your browser. You'll see a live stream of query results as JSON.
+Open **http://localhost:8081** in your browser. You'll see query result set changes appearing as JSON in real time.
 
 For a friendlier view, you can use the SSE viewer from the examples:
 
@@ -734,14 +734,14 @@ You built a complete change-driven solution from scratch:
 
 | Concept | What You Did |
 |---------|-------------|
-| **Sources** | Created PostgreSQL and HTTP sources to capture changes from different systems |
-| **Queries** | Wrote 5 Continuous Queries: simple retrieval, filtering, aggregation, time-based detection, and cross-source joins |
-| **Reactions** | Configured Log and SSE reactions to output to console and browser |
+| **Sources** | Created PostgreSQL and HTTP sources to connect Drasi to different data systems |
+| **Queries** | Wrote 5 Continuous Queries: simple change detection, criteria-based selection, aggregation, time-based detection, and cross-source joins |
+| **Reactions** | Configured Log and SSE reactions to distribute notifications of query result changes to console and browser |
 | **Joins** | Connected data across sources using virtual relationships |
 | **Configuration** | Used `drasi-server init` to scaffold, then manually edited to add components |
 | **Validation** | Used `drasi-server validate` to catch errors before running |
 
-The core Drasi pattern: **Sources feed data → Queries detect changes → Reactions act on them**.
+The core Drasi pattern: **Sources connect to data → Continuous Queries detect changes → Reactions distribute notifications of result set changes**.
 
 ---
 
