@@ -13,7 +13,7 @@ Use VS Code Dev Containers for a consistent development environment with all dep
 - **Git** — [Install Git](https://git-scm.com/downloads)
 - **Docker Desktop** — [Install Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux)
 - **VS Code** — [Install Visual Studio Code](https://code.visualstudio.com/)
-- **Dev Containers extension** — Install from the VS Code Extensions marketplace
+- **Dev Containers extension** — [Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
 ### Recommended Docker Resources
 
@@ -27,7 +27,7 @@ For optimal performance, allocate to Docker:
 docker ps
 ```
 
-If Docker is running, you'll see a table header (even if no containers are running):
+If Docker is running, you'll see a table with these headings showing running containers (even if no containers are running):
 
 ```
 CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
@@ -56,7 +56,7 @@ When VS Code opens, you'll see a notification:
 Click **Reopen in Container**.
 
 {{< alert title="Manually Open Dev Container" color="info" >}}
-If you don't see the notification described, press `F1` and type "Dev Containers: Reopen in Container".
+If you don't see the notification described, press `F1` and type "Dev Containers: Reopen in Container". Then press enter to run the command.
 {{< /alert >}}
 
 ## Step 2: Wait for Setup
@@ -64,15 +64,16 @@ If you don't see the notification described, press `F1` and type "Dev Containers
 The container takes several minutes to build on first run. The setup script will:
 1. Install PostgreSQL client
 2. Build Drasi Server in release mode
+3. Create a symlink at `./drasi-server` for easy access to the Drasi Server binary.
 
-Watch the terminal for: **"Drasi Server development environment is ready!"**
+Watch the terminal for: **"Drasi Server Getting Started tutorial environment is ready!"**
 
 ## Step 3: Verify the Build
 
-Once the setup completes, verify that Drasi Server was built successfully by checking its version:
+Verify that Drasi Server is accessible running the following command in the terminal:
 
 ```bash
-./target/release/drasi-server --version
+./drasi-server --version
 ```
 
 You should see output showing the version number, for example:
@@ -83,48 +84,14 @@ drasi-server 0.1.0
 
 If you see a "file not found" error, the build may not have completed. Check the terminal output for errors and try rebuilding the container.
 
-## Step 4: Start the Tutorial Database
-
-In the VS Code terminal run the following commands to start the PostgreSQL database using Docker Compose:
-
-```bash
-cd examples/getting-started
-docker compose -f database/docker-compose.yml up -d
-```
-
-Verify it's running:
-
-```bash
-docker compose -f database/docker-compose.yml ps
-```
-
-You should see the `getting-started-postgres` container with a status of `running`:
-
-```
-NAME                       IMAGE         COMMAND                  SERVICE    CREATED          STATUS          PORTS
-getting-started-postgres   postgres:16   "docker-entrypoint.s…"   postgres   10 seconds ago   Up 9 seconds    0.0.0.0:5432->5432/tcp
-```
-
-If the container shows a different status or you see errors, check the container logs with `docker compose -f database/docker-compose.yml logs`. See the [Docker Compose documentation](https://docs.docker.com/compose/how-tos/troubleshoot/) for additional troubleshooting help.
-
-## Step 5: Return to Repository Root
-
-Return to the repository root directory before continuing with the tutorial:
-
-```bash
-cd ../..
-```
-
 ---
 
 ## ✅ Setup Complete!
 
-You now have:
-- Drasi Server built at `./target/release/drasi-server`
-- Tutorial database running with sample data
+You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
 
 <div class="card-grid">
-  <a href="../#phase-1">
+  <a href="../#database">
     <div class="unified-card unified-card--tutorials">
       <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
       <div class="unified-card-content">

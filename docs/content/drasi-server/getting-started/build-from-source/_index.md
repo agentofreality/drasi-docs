@@ -14,10 +14,23 @@ Build Drasi Server from source. This approach is ideal for contributors or if yo
 - **Git** — For cloning the repository
 - **Rust 1.88+** — For building Drasi Server ([Install via rustup](https://rustup.rs/))
 
-Verify installations:
+### Verify Docker is Running
 
 ```bash
 docker ps
+```
+
+If Docker is running, you'll see a table with these headings showing running containers (even if no containers are running):
+
+```
+CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
+```
+
+If you see an error like `Cannot connect to the Docker daemon`, Docker isn't running. Start Docker Desktop and wait for it to fully initialize, then try again. If problems persist, see the [Docker troubleshooting guide](https://docs.docker.com/desktop/troubleshoot-and-support/troubleshoot/) for additional help.
+
+### Verify Rust prerequisites
+
+```bash
 rustc --version   # Should be 1.88.0 or later
 cargo --version
 ```
@@ -39,47 +52,28 @@ cargo build --release
 
 This takes several minutes on first build.
 
-## Step 2: Verify the Build
+## Step 2: Create Symlink
+
+Create a symlink so the binary is accessible from the repository root:
 
 ```bash
-./target/release/drasi-server --version
+ln -sf ./target/release/drasi-server ./drasi-server
 ```
 
-## Step 3: Start the Tutorial Database
-
-Navigate to the examples directory and start PostgreSQL:
+Verify the symlink works:
 
 ```bash
-cd examples/getting-started
-docker compose -f database/docker-compose.yml up -d
-```
-
-Verify it's running:
-
-```bash
-docker compose -f database/docker-compose.yml ps
-```
-
-You should see the `getting-started-postgres` container running.
-
-## Step 5: Return to Repository Root
-
-Return to the repository root directory before continuing with the tutorial:
-
-```bash
-cd ../..
+./drasi-server --version
 ```
 
 ---
 
 ## ✅ Setup Complete!
 
-You now have:
-- Drasi Server built at `./target/release/drasi-server`
-- Tutorial database running with sample data
+You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
 
 <div class="card-grid">
-  <a href="../#phase-1">
+  <a href="../#database">
     <div class="unified-card unified-card--tutorials">
       <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
       <div class="unified-card-content">

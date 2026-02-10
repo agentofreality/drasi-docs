@@ -14,15 +14,32 @@ This is the fastest way to get started with Drasi Server. Download a prebuilt bi
 - **curl** and **tar** — For downloading and extracting the binary
 - **Git** — For cloning the tutorial files
 
-Verify Docker is running:
+### Verify Docker is Running
 
 ```bash
 docker ps
 ```
 
-## Step 1: Download Drasi Server
+If Docker is running, you'll see a table with these headings showing running containers (even if no containers are running):
 
-Download the binary for your platform:
+```
+CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
+```
+
+If you see an error like `Cannot connect to the Docker daemon`, Docker isn't running. Start Docker Desktop and wait for it to fully initialize, then try again. If problems persist, see the [Docker troubleshooting guide](https://docs.docker.com/desktop/troubleshoot-and-support/troubleshoot/) for additional help.
+
+## Step 1: Clone the Repository
+
+Clone the Drasi Server repository to get the tutorial files:
+
+```bash
+git clone https://github.com/drasi-project/drasi-server.git
+cd drasi-server
+```
+
+## Step 2: Download Drasi Server
+
+Download the binary for your platform into the repository root:
 
 {{< tabpane persist="header" >}}
 {{< tab header="macOS (Apple Silicon)" lang="bash" >}}
@@ -49,58 +66,14 @@ Verify the download:
 ./drasi-server --version
 ```
 
-## Step 2: Get the Tutorial Files
-
-Clone the Drasi Server repository to get the tutorial database configuration:
-
-```bash
-git clone https://github.com/drasi-project/drasi-server.git
-cd drasi-server/examples/getting-started
-```
-
-## Step 3: Start the Tutorial Database
-
-Start PostgreSQL with Docker Compose:
-
-```bash
-docker compose -f database/docker-compose.yml up -d
-```
-
-Wait a few seconds, then verify it's running:
-
-```bash
-docker compose -f database/docker-compose.yml ps
-```
-
-You should see the `getting-started-postgres` container running.
-
-## Step 4: Return to Repository Root
-
-Return to the repository root directory before continuing with the tutorial:
-
-```bash
-cd ../..
-```
-
-## Step 5: Verify Setup
-
-Test that Drasi Server can run by referencing the path where you downloaded the binary:
-
-```bash
-# Adjust the path based on where you downloaded it
-~/drasi-server --version
-```
-
 ---
 
 ## ✅ Setup Complete!
 
-You now have:
-- Drasi Server binary ready to run
-- Tutorial database running with sample data
+You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
 
 <div class="card-grid">
-  <a href="../#phase-1">
+  <a href="../#database">
     <div class="unified-card unified-card--tutorials">
       <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
       <div class="unified-card-content">

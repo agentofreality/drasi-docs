@@ -32,8 +32,9 @@ Or manually:
 The Codespace takes a few minutes to initialize. The setup script will:
 1. Install PostgreSQL client
 2. Build Drasi Server in release mode
+3. Create a symlink at `./drasi-server` for easy access
 
-Watch the terminal for: **"Drasi Server development environment is ready!"**
+Watch the terminal for: **"Drasi Server Getting Started tutorial environment is ready!"**
 
 {{< alert title="Build time" color="info" >}}
 The first build takes several minutes. Subsequent Codespace sessions are faster if you don't delete the Codespace.
@@ -41,41 +42,20 @@ The first build takes several minutes. Subsequent Codespace sessions are faster 
 
 ## Step 3: Verify the Build
 
-```bash
-./target/release/drasi-server --version
-```
-
-## Step 4: Start the Tutorial Database
+Verify that Drasi Server is accessible:
 
 ```bash
-cd examples/getting-started
-docker compose -f database/docker-compose.yml up -d
-```
-
-Verify it's running:
-
-```bash
-docker compose -f database/docker-compose.yml ps
-```
-
-## Step 5: Return to Repository Root
-
-Return to the repository root directory before continuing with the tutorial:
-
-```bash
-cd ../..
+./drasi-server --version
 ```
 
 ---
 
 ## ✅ Setup Complete!
 
-You now have:
-- Drasi Server built at `./target/release/drasi-server`
-- Tutorial database running with sample data
+You now have Drasi Server accessible at `./drasi-server` from the tutorial folder.
 
 <div class="card-grid">
-  <a href="../#phase-1">
+  <a href="../#database">
     <div class="unified-card unified-card--tutorials">
       <div class="unified-card-icon"><i class="fas fa-arrow-right"></i></div>
       <div class="unified-card-content">

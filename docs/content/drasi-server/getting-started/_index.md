@@ -10,7 +10,7 @@ description: "Build your first change-driven solution with Drasi Server"
 
 This Getting Started tutorial teaches you how to use Drasi Server by demonstrating how to create {{< term "Source" "Sources" >}}, {{< term "Continuous Query" "Continuous Queries" >}}, and {{< term "Reaction" "Reactions" >}}. You'll use the `drasi-server init` command to create your initial configuration, then progressively add queries and reactions to learn each concept.
 
-**Time**: ~25-30 minutes
+**Time**: ~30 minutes
 
 **What you'll learn**:
 - How to create a Source that connects to PostgreSQL
@@ -19,7 +19,7 @@ This Getting Started tutorial teaches you how to use Drasi Server by demonstrati
 
 ## Step 1: Set Up Your Environment {#setup}
 
-Choose your preferred environment for working through the tutorial. Each approach gets you to the same starting point: Drasi Server ready to run and a PostgreSQL database setup to use as a data source in the tutorial.
+Choose your preferred environment for working through the Getting Started tutorial. Each approach gets you to the same starting point: Drasi Server ready to run and a PostgreSQL database setup to use as a data source in the tutorial.
 
 <div class="card-grid">
   <a href="download-binary/">
@@ -62,13 +62,36 @@ Choose your preferred environment for working through the tutorial. Each approac
 
 <div style="margin-top: 2rem;"></div>
 
-After completing your preferred setup, return here to continue.
+After completing your preferred setup, return here to continue with the tutorial.
 
 ---
 
-## The Tutorial Database {#database}
+## Step 2: Start the Tutorial Database {#database}
 
-The tutorial uses a PostgreSQL database that was installed during setup and configured with a simple `Message` table:
+The tutorial uses a PostgreSQL database. Start the database using the following Docker Compose command:
+
+```bash
+docker compose -f examples/getting-started/database/docker-compose.yml up -d
+```
+
+Verify the database is running with the following command:
+
+```bash
+docker compose -f examples/getting-started/database/docker-compose.yml ps
+```
+
+You should see the `getting-started-postgres` container with a status of `running`:
+
+```
+NAME                       IMAGE         COMMAND                  SERVICE    CREATED          STATUS          PORTS
+getting-started-postgres   postgres:16   "docker-entrypoint.s…"   postgres   10 seconds ago   Up 9 seconds    0.0.0.0:5432->5432/tcp
+```
+
+If the container shows a different status or you see errors, check the container logs with `docker compose -f examples/getting-started/database/docker-compose.yml logs`. See the [Docker Compose documentation](https://docs.docker.com/compose/how-tos/troubleshoot/) for additional troubleshooting help.
+
+### Tutorial Data
+
+The database is configured with a simple `Message` table with the following schema:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -77,9 +100,7 @@ The tutorial uses a PostgreSQL database that was installed during setup and conf
 | Message | varchar(200) | The message content |
 | created_at | timestamp | When the message was sent |
 
-<div style="margin-top: 2rem;"></div>
-
-The `Message` table was pre-populated with these messages:
+During database setup, the `Message` table was populated with these messages:
 
 | MessageId | From | Message |
 |-----------|------|---------|
@@ -88,40 +109,26 @@ The `Message` table was pre-populated with these messages:
 | 3 | Antoninus | I am Spartacus |
 | 4 | David | I am Spartacus |
 
+
 ---
 
-## Step 2: Create Your First Configuration {#phase-1}
+## Step 3: Create Your First Configuration {#phase-1}
 
-Now you'll create your own Drasi Server configuration using the interactive `init` command.
+Now you'll create your own Drasi Server configuration using the interactive `drasi-server init` command.
+ 
+### Create the Drasi Server Configuration
 
-### Before You Begin
-
-Make sure you're in the repository root directory (where you see `Cargo.toml` and the `examples/` folder).
-
-The commands below assume `drasi-server` is accessible. Depending on your setup method:
-- **Download Binary**: Use the path where you downloaded it (e.g., `~/drasi-server`)
-- **Dev Container / Codespace / Build from Source**: Use `./target/release/drasi-server`
-
-{{< alert title="Tip" color="info" >}}
-For convenience, you can create an alias:
-```bash
-# For downloaded binary
-alias drasi-server="~/drasi-server"
-
-# For built from source
-alias drasi-server="./target/release/drasi-server"
-```
-{{< /alert >}}
-
-### Create the Configuration
+Make sure you're in the tutorial root folder and run the following command:
 
 ```bash
-drasi-server init --output my-config.yaml
+./drasi-server init --output my-config.yaml
 ```
 
-The `init` command walks you through an interactive wizard. Here's what to enter at each prompt:
+The `init` command walks you through an interactive wizard that will assist you in creating a correctly formatted Drasi Server config file. Here's what to enter at each prompt:
 
 #### 1. Server Settings
+
+Configuration starts with general Drasi Server settings.
 
 | Prompt | Enter | Notes |
 |--------|-------|-------|
@@ -133,60 +140,74 @@ The `init` command walks you through an interactive wizard. Here's what to enter
 
 #### 2. Data Sources
 
-| Prompt | Enter | Notes |
-|--------|-------|-------|
-| **Select sources** | `PostgreSQL` | Press Space to select, then Enter |
+After configuring server settings, you'll add a data source. For this tutorial, use the arrow keys to highlight **PostgreSQL**, press Space to select the source, then Enter.
 
-After selecting PostgreSQL, you'll configure the connection:
+After selecting PostgreSQL, you'll configure the database connection settings:
 
 | Prompt | Enter | Notes |
 |--------|-------|-------|
 | **Source ID** | `my-postgres` | A unique name for this source |
-| **Database host** | `localhost` | |
+| **Database host** | `getting-started-postgres` | The PostgreSQL container name |
 | **Database port** | `5432` (default) | Press Enter to accept |
 | **Database name** | `getting_started` | The tutorial database |
 | **Database user** | `drasi_user` | |
-| **Database password** | `drasi_password` | |
+| **Database password** | `drasi_password` | Type the password (characters won't display) and press Enter |
 | **Tables to monitor** | `message` | The table we'll query |
 | **Bootstrap provider** | `PostgreSQL` | Use arrow keys to select "PostgreSQL - Load initial data" |
 
 #### 3. Reactions
 
+Finally, add a Reaction to see query results. Use the arrow keys to highlight **Log**, press Space to select the Reaction, then Enter.
+
+After selecting Log, you'll configure the following settings:
+
 | Prompt | Enter | Notes |
 |--------|-------|-------|
-| **Select reactions** | `Log` | Press Space to select, then Enter |
 | **Reaction ID** | `log-reaction` (default) | Press Enter to accept |
 
-After completing the wizard, you'll have a `my-config.yaml` file. Before running, you need to add a query.
+After completing the wizard, you'll see the following output:
 
-### Add a Query
+```
+Configuration saved to: my-config.yaml
 
-Open `my-config.yaml` in your editor and add a `queries` section. Find where the file ends and add:
+Next steps:
+  1. Review and edit my-config.yaml as needed
+  2. Run: drasi-server --config my-config.yaml
+```
+
+Before running Drasi Server, you need to update the default query to return messages from our tutorial database.
+
+### Update the Query
+
+Open `my-config.yaml` in your editor and find the `queries` section. The wizard created a default query that looks like this:
 
 ```yaml
 queries:
   - id: my-query
-    sources:
-      - sourceId: my-postgres
+    autoStart: true
+    query: MATCH (n) RETURN n
+    ...
+```
+
+Replace the entire `query:` line with a multi-line query that returns messages:
+
+```yaml
+queries:
+  - id: my-query
+    autoStart: true
     query: |
       MATCH (m:Message)
       RETURN m.messageid AS messageid, m.from AS from, m.message AS message
+    queryLanguage: GQL
+    ...
 ```
 
-Also update the `log-reaction` to reference your query. Find the `reactions` section and ensure it includes:
-
-```yaml
-reactions:
-  - kind: log
-    id: log-reaction
-    queries:
-      - my-query
-```
+The `|` character allows you to write the query across multiple lines for readability. Leave the other fields (`queryLanguage`, `sources`, etc.) as they are.
 
 ### Run Drasi Server
 
 ```bash
-drasi-server --config my-config.yaml
+./drasi-server --config my-config.yaml
 ```
 
 You should see startup logs followed by the initial query results:
@@ -219,7 +240,7 @@ Watch the Drasi Server console — your message appears instantly!
 
 ---
 
-## Step 3: Add a Filtered Query {#phase-2}
+## Step 4: Add a Filtered Query {#phase-2}
 
 Now you'll edit your configuration to add a query that filters the change stream.
 
@@ -245,7 +266,7 @@ queries:
 Before running, validate the configuration to catch any errors:
 
 ```bash
-drasi-server validate --config my-config.yaml
+./drasi-server validate --config my-config.yaml
 ```
 
 If there are errors (typos, invalid syntax), you'll see helpful messages. Fix them before proceeding.
@@ -255,7 +276,7 @@ If there are errors (typos, invalid syntax), you'll see helpful messages. Fix th
 Stop the running server (`Ctrl+C`) and restart:
 
 ```bash
-drasi-server --config my-config.yaml
+./drasi-server --config my-config.yaml
 ```
 
 Now you have two queries running. The new `hello-world-senders` query only shows Brian Kernighan (the one who sent "Hello World").
@@ -293,7 +314,7 @@ Notice that `hello-world-senders` didn't output anything — the `WHERE` clause 
 
 ---
 
-## Step 4: Add an Aggregation Query {#phase-3}
+## Step 5: Add an Aggregation Query {#phase-3}
 
 Drasi maintains state, so you can run aggregations that update automatically as data changes.
 
@@ -316,8 +337,8 @@ queries:
 ### Validate and Run
 
 ```bash
-drasi-server validate --config my-config.yaml
-drasi-server --config my-config.yaml
+./drasi-server validate --config my-config.yaml
+./drasi-server --config my-config.yaml
 ```
 
 You'll see the aggregated counts in the initial output:
@@ -348,7 +369,7 @@ The `-` shows the old value being removed, and `+` shows the new value. The coun
 
 ---
 
-## Step 5: Add Time-Based Detection {#phase-4}
+## Step 6: Add Time-Based Detection {#phase-4}
 
 Drasi can detect patterns over time, including the *absence* of activity.
 
@@ -373,8 +394,8 @@ queries:
 ### Validate and Run
 
 ```bash
-drasi-server validate --config my-config.yaml
-drasi-server --config my-config.yaml
+./drasi-server validate --config my-config.yaml
+./drasi-server --config my-config.yaml
 ```
 
 ### Wait and Observe
@@ -399,7 +420,7 @@ Watch Alice disappear from the inactive list (she just sent a message). After 20
 
 ---
 
-## Step 6: Add a Browser Reaction {#phase-5}
+## Step 7: Add a Browser Reaction {#phase-5}
 
 So far you've used the Log reaction. Now add an SSE (Server-Sent Events) reaction to view results in a browser.
 
@@ -423,8 +444,8 @@ reactions:
 ### Validate and Run
 
 ```bash
-drasi-server validate --config my-config.yaml
-drasi-server --config my-config.yaml
+./drasi-server validate --config my-config.yaml
+./drasi-server --config my-config.yaml
 ```
 
 ### View in Browser
