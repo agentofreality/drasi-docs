@@ -8,23 +8,18 @@ hide_readingtime: true
 description: "Build your first change-driven solution with Drasi Server"
 ---
 
-This tutorial will help you get Drasi Server up and running and show you how to create {{< term "Source" "Sources" >}}, {{< term "Continuous Query" "Continuous Queries" >}}, and {{< term "Reaction" "Reactions" >}}.
+This Getting Started tutorial teaches you how to use Drasi Server by demonstrating how to create {{< term "Source" "Sources" >}}, {{< term "Continuous Query" "Continuous Queries" >}}, and {{< term "Reaction" "Reactions" >}}. You'll use the `drasi-server init` command to create your initial configuration, then progressively add queries and reactions to learn each concept.
 
-After completing this tutorial (~20-30 minutes), you will have built a complete change-driven solution that captures changes from a PostgreSQL database and reacts to them in real-time.
+**Time**: ~25-30 minutes
 
-## What You'll Build
+**What you'll learn**:
+- How to create a Source that connects to PostgreSQL
+- How to write Continuous Queries that filter, aggregate, and detect patterns over time
+- How to configure Reactions that output to console and browser
 
-You'll create a message tracking system that monitors a PostgreSQL database in real-time. The solution includes:
+## Step 1: Set Up Your Environment {#setup}
 
-- A **PostgreSQL Source** that captures database changes via CDC (Change Data Capture)
-- Three **Continuous Queries** that filter, aggregate, and detect time-based patterns
-- **Reactions** that stream results to your browser and console
-
-As you add, update, and delete messages in the database, you'll see the query results update automatically in real-time.
-
-## Choose How You Want to Get Started With Drasi Server
-
-There are multiple ways to set up Drasi Server. Each approach will guide you through the same hands-on tutorial, but you can choose the method that best fits your preferences and environment.
+Choose your preferred environment for working through the tutorial. Each approach gets you to the same starting point: Drasi Server ready to run and a PostgreSQL database setup to use as a data source in the tutorial.
 
 <div class="card-grid">
   <a href="download-binary/">
@@ -33,15 +28,6 @@ There are multiple ways to set up Drasi Server. Each approach will guide you thr
       <div class="unified-card-content">
         <h3 class="unified-card-title">Download Binary</h3>
         <p class="unified-card-summary">Download a prebuilt binary for macOS or Linux. The fastest way to get started.</p>
-      </div>
-    </div>
-  </a>
-  <a href="build-from-source/">
-    <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-hammer"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Build from Source</h3>
-        <p class="unified-card-summary">Clone and build Drasi Server yourself. Ideal for contributors.</p>
       </div>
     </div>
   </a>
@@ -60,6 +46,484 @@ There are multiple ways to set up Drasi Server. Each approach will guide you thr
       <div class="unified-card-content">
         <h3 class="unified-card-title">Dev Container</h3>
         <p class="unified-card-summary">VS Code Dev Container with all dependencies preconfigured.</p>
+      </div>
+    </div>
+  </a>
+  <a href="build-from-source/">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fas fa-hammer"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Build from Source</h3>
+        <p class="unified-card-summary">Clone and build Drasi Server yourself. Ideal for contributors.</p>
+      </div>
+    </div>
+  </a>
+</div>
+
+<div style="margin-top: 2rem;"></div>
+
+After completing your preferred setup, return here to continue.
+
+---
+
+## The Tutorial Database {#database}
+
+The tutorial uses a PostgreSQL database that was installed during setup and configured with a simple `Message` table:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| MessageId | integer | Unique message identifier |
+| From | varchar(50) | Who sent the message |
+| Message | varchar(200) | The message content |
+| created_at | timestamp | When the message was sent |
+
+<div style="margin-top: 2rem;"></div>
+
+The `Message` table was pre-populated with these messages:
+
+| MessageId | From | Message |
+|-----------|------|---------|
+| 1 | Buzz Lightyear | To infinity and beyond! |
+| 2 | Brian Kernighan | Hello World |
+| 3 | Antoninus | I am Spartacus |
+| 4 | David | I am Spartacus |
+
+---
+
+## Step 2: Create Your First Configuration {#phase-1}
+
+Now you'll create your own Drasi Server configuration using the interactive `init` command.
+
+### Before You Begin
+
+Make sure you're in the repository root directory (where you see `Cargo.toml` and the `examples/` folder).
+
+The commands below assume `drasi-server` is accessible. Depending on your setup method:
+- **Download Binary**: Use the path where you downloaded it (e.g., `~/drasi-server`)
+- **Dev Container / Codespace / Build from Source**: Use `./target/release/drasi-server`
+
+{{< alert title="Tip" color="info" >}}
+For convenience, you can create an alias:
+```bash
+# For downloaded binary
+alias drasi-server="~/drasi-server"
+
+# For built from source
+alias drasi-server="./target/release/drasi-server"
+```
+{{< /alert >}}
+
+### Create the Configuration
+
+```bash
+drasi-server init --output my-config.yaml
+```
+
+The `init` command walks you through an interactive wizard. Here's what to enter at each prompt:
+
+#### 1. Server Settings
+
+| Prompt | Enter | Notes |
+|--------|-------|-------|
+| **Server host** | `0.0.0.0` (default) | Press Enter to accept |
+| **Server port** | `8080` (default) | Press Enter to accept |
+| **Log level** | `info` | Use arrow keys to select |
+| **Enable persistent indexing (RocksDB)?** | `No` (default) | Press Enter to accept |
+| **State store** | `None` | Use arrow keys to select "None - In-memory state" |
+
+#### 2. Data Sources
+
+| Prompt | Enter | Notes |
+|--------|-------|-------|
+| **Select sources** | `PostgreSQL` | Press Space to select, then Enter |
+
+After selecting PostgreSQL, you'll configure the connection:
+
+| Prompt | Enter | Notes |
+|--------|-------|-------|
+| **Source ID** | `my-postgres` | A unique name for this source |
+| **Database host** | `localhost` | |
+| **Database port** | `5432` (default) | Press Enter to accept |
+| **Database name** | `getting_started` | The tutorial database |
+| **Database user** | `drasi_user` | |
+| **Database password** | `drasi_password` | |
+| **Tables to monitor** | `message` | The table we'll query |
+| **Bootstrap provider** | `PostgreSQL` | Use arrow keys to select "PostgreSQL - Load initial data" |
+
+#### 3. Reactions
+
+| Prompt | Enter | Notes |
+|--------|-------|-------|
+| **Select reactions** | `Log` | Press Space to select, then Enter |
+| **Reaction ID** | `log-reaction` (default) | Press Enter to accept |
+
+After completing the wizard, you'll have a `my-config.yaml` file. Before running, you need to add a query.
+
+### Add a Query
+
+Open `my-config.yaml` in your editor and add a `queries` section. Find where the file ends and add:
+
+```yaml
+queries:
+  - id: my-query
+    sources:
+      - sourceId: my-postgres
+    query: |
+      MATCH (m:Message)
+      RETURN m.messageid AS messageid, m.from AS from, m.message AS message
+```
+
+Also update the `log-reaction` to reference your query. Find the `reactions` section and ensure it includes:
+
+```yaml
+reactions:
+  - kind: log
+    id: log-reaction
+    queries:
+      - my-query
+```
+
+### Run Drasi Server
+
+```bash
+drasi-server --config my-config.yaml
+```
+
+You should see startup logs followed by the initial query results:
+
+```
+[INFO  drasi_server] Starting Drasi Server
+[INFO  drasi_server::server] Drasi Server started successfully with API on port 8080
+[my-query] + {"messageid":1,"from":"Buzz Lightyear","message":"To infinity and beyond!"}
+[my-query] + {"messageid":2,"from":"Brian Kernighan","message":"Hello World"}
+[my-query] + {"messageid":3,"from":"Antoninus","message":"I am Spartacus"}
+[my-query] + {"messageid":4,"from":"David","message":"I am Spartacus"}
+```
+
+### Test Real-Time Changes
+
+Open a **new terminal** and insert a message:
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO message (\"from\", message) VALUES ('You', 'My first message!');"
+```
+
+Watch the Drasi Server console — your message appears instantly!
+
+```
+[my-query] + {"messageid":5,"from":"You","message":"My first message!"}
+```
+
+**✅ Checkpoint**: You've created your first Source, Query, and Reaction. Changes in the database flow through Drasi and appear in the console in real-time.
+
+---
+
+## Step 3: Add a Filtered Query {#phase-2}
+
+Now you'll edit your configuration to add a query that filters the change stream.
+
+### Edit Your Config
+
+Open `my-config.yaml` in your editor and add a second query. Find the `queries:` section and add:
+
+```yaml
+queries:
+  # ... your existing query ...
+  
+  - id: hello-world-senders
+    sources:
+      - sourceId: my-postgres  # Use the source ID you created
+    query: |
+      MATCH (m:Message)
+      WHERE m.message = 'Hello World'
+      RETURN m.messageid AS Id, m.from AS Sender
+```
+
+### Validate Your Changes
+
+Before running, validate the configuration to catch any errors:
+
+```bash
+drasi-server validate --config my-config.yaml
+```
+
+If there are errors (typos, invalid syntax), you'll see helpful messages. Fix them before proceeding.
+
+### Restart and Observe
+
+Stop the running server (`Ctrl+C`) and restart:
+
+```bash
+drasi-server --config my-config.yaml
+```
+
+Now you have two queries running. The new `hello-world-senders` query only shows Brian Kernighan (the one who sent "Hello World").
+
+### Test Filtering
+
+```bash
+# This WILL appear in hello-world-senders (matches the filter)
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO message (\"from\", message) VALUES ('Alice', 'Hello World');"
+```
+
+Watch the console:
+```
+[my-query] + {"messageid":6,"from":"Alice","message":"Hello World"}
+[hello-world-senders] + {"Id":6,"Sender":"Alice"}
+```
+
+Now try a message that doesn't match:
+
+```bash
+# This will NOT appear in hello-world-senders (different message)
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO message (\"from\", message) VALUES ('Bob', 'Goodbye World');"
+```
+
+The console shows:
+```
+[my-query] + {"messageid":7,"from":"Bob","message":"Goodbye World"}
+```
+
+Notice that `hello-world-senders` didn't output anything — the `WHERE` clause filtered it out.
+
+**✅ Checkpoint**: You understand how Cypher `WHERE` clauses filter which changes trigger reactions. Only matching changes produce output.
+
+---
+
+## Step 4: Add an Aggregation Query {#phase-3}
+
+Drasi maintains state, so you can run aggregations that update automatically as data changes.
+
+### Edit Your Config
+
+Add a query that counts how many times each message has been sent:
+
+```yaml
+queries:
+  # ... existing queries ...
+  
+  - id: message-counts
+    sources:
+      - sourceId: my-postgres
+    query: |
+      MATCH (m:Message)
+      RETURN m.message AS Message, count(m) AS Count
+```
+
+### Validate and Run
+
+```bash
+drasi-server validate --config my-config.yaml
+drasi-server --config my-config.yaml
+```
+
+You'll see the aggregated counts in the initial output:
+```
+[message-counts] + {"Message":"To infinity and beyond!","Count":1}
+[message-counts] + {"Message":"Hello World","Count":2}
+[message-counts] + {"Message":"I am Spartacus","Count":2}
+[message-counts] + {"Message":"My first message!","Count":1}
+[message-counts] + {"Message":"Goodbye World","Count":1}
+```
+
+### Test Aggregation Updates
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO message (\"from\", message) VALUES ('Eve', 'Hello World');"
+```
+
+Watch the count update automatically:
+```
+[message-counts] - {"Message":"Hello World","Count":2}
+[message-counts] + {"Message":"Hello World","Count":3}
+```
+
+The `-` shows the old value being removed, and `+` shows the new value. The count for "Hello World" incremented from 2 to 3.
+
+**✅ Checkpoint**: You understand that Drasi tracks state — aggregations update in real-time as data changes.
+
+---
+
+## Step 5: Add Time-Based Detection {#phase-4}
+
+Drasi can detect patterns over time, including the *absence* of activity.
+
+### Edit Your Config
+
+Add a query that identifies senders who haven't sent a message in the last 20 seconds:
+
+```yaml
+queries:
+  # ... existing queries ...
+  
+  - id: inactive-senders
+    sources:
+      - sourceId: my-postgres
+    query: |
+      MATCH (m:Message)
+      WITH m.from AS Sender, max(m.created_at) AS LastSeen
+      WHERE LastSeen < datetime() - duration('PT20S')
+      RETURN Sender, LastSeen
+```
+
+### Validate and Run
+
+```bash
+drasi-server validate --config my-config.yaml
+drasi-server --config my-config.yaml
+```
+
+### Wait and Observe
+
+After about 20 seconds of inactivity, senders will start appearing in the `inactive-senders` output:
+
+```
+[inactive-senders] + {"Sender":"Buzz Lightyear","LastSeen":"2024-..."}
+[inactive-senders] + {"Sender":"Brian Kernighan","LastSeen":"2024-..."}
+```
+
+### Reactivate a Sender
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO message (\"from\", message) VALUES ('Alice', 'Still here!');"
+```
+
+Watch Alice disappear from the inactive list (she just sent a message). After 20 more seconds of inactivity, she'll reappear.
+
+**✅ Checkpoint**: You understand that Drasi can detect the *absence* of activity over time — a powerful capability for monitoring and alerting.
+
+---
+
+## Step 6: Add a Browser Reaction {#phase-5}
+
+So far you've used the Log reaction. Now add an SSE (Server-Sent Events) reaction to view results in a browser.
+
+### Edit Your Config
+
+Add an SSE reaction:
+
+```yaml
+reactions:
+  # ... existing log reaction ...
+  
+  - kind: sse
+    id: browser-stream
+    queries:
+      - hello-world-senders
+      - message-counts
+      - inactive-senders
+    port: 8081
+```
+
+### Validate and Run
+
+```bash
+drasi-server validate --config my-config.yaml
+drasi-server --config my-config.yaml
+```
+
+### View in Browser
+
+Open **http://localhost:8081** in your browser. You'll see a live stream of query results as JSON.
+
+For a friendlier view, you can use the SSE viewer from the examples:
+
+```bash
+cd examples/getting-started
+python3 -m http.server 8000 --directory viewer &
+```
+
+Then open **http://localhost:8000** to see a dashboard with all three queries.
+
+### Test Live Updates
+
+Insert more messages and watch the browser update in real-time — no page refresh needed!
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO message (\"from\", message) VALUES ('Charlie', 'Hello World');"
+```
+
+**✅ Checkpoint**: You understand that queries can feed multiple reactions, and reactions can output to different destinations (console, browser, webhooks, etc.).
+
+---
+
+## What You've Learned {#summary}
+
+You built a complete change-driven solution from scratch:
+
+| Concept | What You Did |
+|---------|-------------|
+| **Sources** | Created a PostgreSQL Source that captures changes via CDC |
+| **Queries** | Wrote 4 Continuous Queries: simple retrieval, filtering, aggregation, and time-based detection |
+| **Reactions** | Configured Log and SSE reactions to output to console and browser |
+| **Configuration** | Used `drasi-server init` to scaffold, then manually edited to add components |
+| **Validation** | Used `drasi-server validate` to catch errors before running |
+| **Workflow** | Practiced the edit → validate → run cycle you'll use in real projects |
+
+The core Drasi pattern: **Sources feed data → Queries detect changes → Reactions act on them**.
+
+---
+
+## Cleanup {#cleanup}
+
+Stop Drasi Server with `Ctrl+C`.
+
+Stop the tutorial database:
+
+```bash
+docker compose -f database/docker-compose.yml down
+```
+
+To remove database data completely:
+
+```bash
+docker compose -f database/docker-compose.yml down -v
+```
+
+---
+
+## Next Steps
+
+<div class="card-grid">
+  <a href="/concepts/overview/">
+    <div class="unified-card unified-card--concepts">
+      <div class="unified-card-icon"><i class="fas fa-lightbulb"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Understand Drasi Concepts</h3>
+        <p class="unified-card-summary">Understand how Drasi works under the hood</p>
+      </div>
+    </div>
+  </a>
+  <a href="../how-to-guides/configuration/configure-sources/">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-database"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Configure Sources</h3>
+        <p class="unified-card-summary">Detect changes in PostgreSQL, HTTP, gRPC, and more</p>
+      </div>
+    </div>
+  </a>
+  <a href="../how-to-guides/configuration/configure-queries/">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-search"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Configure Queries</h3>
+        <p class="unified-card-summary">Write advanced Continuous Queries in GQL and openCypher</p>
+      </div>
+    </div>
+  </a>
+  <a href="../how-to-guides/configuration/configure-reactions/">
+    <div class="unified-card unified-card--howto">
+      <div class="unified-card-icon"><i class="fas fa-bolt"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Configure Reactions</h3>
+        <p class="unified-card-summary">React to changes using SSE, gRPC, Stored Procedures, and more</p>
       </div>
     </div>
   </a>
