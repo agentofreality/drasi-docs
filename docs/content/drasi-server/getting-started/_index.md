@@ -80,18 +80,18 @@ Verify the database container is running:
 docker compose -f examples/getting-started/database/docker-compose.yml ps
 ```
 
-You should see the `getting-started-postgres` container with a status of `running`:
+You should see the `getting-started-postgres` container with a status of `Up`:
 
 ```
-NAME                       IMAGE         COMMAND                  SERVICE    CREATED          STATUS          PORTS
-getting-started-postgres   postgres:16   "docker-entrypoint.s…"   postgres   10 seconds ago   Up 9 seconds    0.0.0.0:5432->5432/tcp
+NAME                       IMAGE                COMMAND                  SERVICE    CREATED          STATUS                    PORTS
+getting-started-postgres   postgres:14-alpine   "docker-entrypoint.s…"   postgres   31 seconds ago   Up 30 seconds (healthy)   0.0.0.0:5432->5432/tcp
 ```
 
 If the container shows a different status or you see errors, check the container logs with `docker compose -f examples/getting-started/database/docker-compose.yml logs`. See the [Docker Compose documentation](https://docs.docker.com/compose/how-tos/troubleshoot/) for additional troubleshooting help.
 
 ### Initialize the Database
 
-Once the container is running, initialize the database schema and sample data.
+Once the container is up, initialize the database schema and sample data.
 
 The tutorial uses a simple `Message` table with the following schema:
 
@@ -135,21 +135,41 @@ NOTICE:  Publication: drasi_pub
 NOTICE:  Replication slot: drasi_slot
 ```
 
+Verify the sample data was loaded:
+
+```bash
+docker exec getting-started-postgres psql -U drasi_user -d getting_started -c "SELECT * FROM message;"
+```
+
+You should see the 4 sample messages:
+
+```
+ messageid |      from       |         message          |         created_at         
+-----------+-----------------+--------------------------+----------------------------
+         1 | Buzz Lightyear  | To infinity and beyond!  | 2026-02-10 21:30:08.123456
+         2 | Brian Kernighan | Hello World              | 2026-02-10 21:30:08.123456
+         3 | Antoninus       | I am Spartacus           | 2026-02-10 21:30:08.123456
+         4 | David           | I am Spartacus           | 2026-02-10 21:30:08.123456
+(4 rows)
+```
+
 ---
 
 ## Step 3: Create Your First Configuration {#phase-1}
 
-Now you'll create your own Drasi Server configuration using the interactive `drasi-server init` command.
- 
+Now you'll create your initial Drasi Server configuration using the interactive `drasi-server init` command.
+
+The `init` command walks you through an interactive wizard that will assist you in creating a correctly formatted Drasi Server config file. The wizard will only write the config file at the end, so if you make a mistake just break out of the wizard using `ctrl-c` and run `drasi-server init` again. The `init` command cannot be used to edit existing config files, you must edit them manually in your text editor.
+
 ### Create the Drasi Server Configuration
 
-Make sure you're in the tutorial root folder and run the following command:
+From the tutorial root folder, run the following command:
 
 ```bash
 ./bin/drasi-server init --output my-config.yaml
 ```
 
-The `init` command walks you through an interactive wizard that will assist you in creating a correctly formatted Drasi Server config file. Here's what to enter at each prompt:
+Here's what to enter at each prompt:
 
 #### 1. Server Settings
 
@@ -172,7 +192,7 @@ After selecting PostgreSQL, you'll configure the database connection settings:
 | Prompt | Enter | Notes |
 |--------|-------|-------|
 | **Source ID** | `my-postgres` | A unique name for this source |
-| **Database host** | `getting-started-postgres` | The PostgreSQL container name |
+| **Database host** | `${DB_HOST:-localhost}` | Uses env var with localhost as default (see note below) |
 | **Database port** | `5432` (default) | Press Enter to accept |
 | **Database name** | `getting_started` | The tutorial database |
 | **Database user** | `drasi_user` | |
@@ -182,6 +202,8 @@ After selecting PostgreSQL, you'll configure the database connection settings:
 | **Does table 'message' need key columns specified?** | `Yes` | Need to configure tableKey for `message` table |
 | **Key columns for 'message'** | `messageid` | The message table's primary key |
 | **Bootstrap provider** | `PostgreSQL` | Use arrow keys to select "PostgreSQL - Load initial data" |
+
+> **Why `${DB_HOST:-localhost}`?** This uses Drasi Server's environment variable interpolation. When running locally (Download Binary or Build from Source), it defaults to `localhost`. In a Dev Container or Codespace, the `DB_HOST` environment variable is automatically set to `getting-started-postgres` (the container name on the shared Docker network).
 
 #### 3. Reactions
 
@@ -203,18 +225,26 @@ Next steps:
   2. Run: drasi-server --config my-config.yaml
 ```
 
-Before running Drasi Server, you need to update the default query to return messages from our tutorial database.
-
 ### Update the Query
 
-Open `my-config.yaml` in your editor and find the `queries` section. The wizard created a default query that looks like this:
+The wizard created a default Continuous Query that returns all changes to Source. Now you'll edit the Continuous Query to return only `message` nodes and to rename some of their fields for clarity.
+
+Open `my-config.yaml` in your preferred editor and find the `queries` section. The wizard's default query looks like this:
 
 ```yaml
 queries:
-  - id: my-query
-    autoStart: true
-    query: MATCH (n) RETURN n
-    ...
+- id: my-query
+  autoStart: true
+  query: MATCH (n) RETURN n
+  queryLanguage: GQL
+  middleware: []
+  sources:
+  - sourceId: my-postgres
+    nodes: []
+    relations: []
+    pipeline: []
+  enableBootstrap: true
+  bootstrapBufferSize: 10000
 ```
 
 Replace the entire `query:` line with a multi-line query that returns messages:
@@ -238,33 +268,57 @@ The `|` character allows you to write the query across multiple lines for readab
 ./bin/drasi-server --config my-config.yaml
 ```
 
-You should see startup logs followed by the initial query results:
+You'll see detailed startup logs as Drasi Server initializes sources, queries, and reactions. There's a lot of output — look for these key lines:
 
 ```
-[INFO  drasi_server] Starting Drasi Server
-[INFO  drasi_server::server] Drasi Server started successfully with API on port 8080
-[my-query] + {"messageid":1,"from":"Buzz Lightyear","message":"To infinity and beyond!"}
-[my-query] + {"messageid":2,"from":"Brian Kernighan","message":"Hello World"}
-[my-query] + {"messageid":3,"from":"Antoninus","message":"I am Spartacus"}
-[my-query] + {"messageid":4,"from":"David","message":"I am Spartacus"}
+Starting Drasi Server
+  Config file: my-config.yaml
+  API Port: 8080
+  Log level: info
 ```
+
+```
+[log-reaction] Started - receiving results from queries: ["my-query"]
+```
+
+```
+Drasi Server started successfully with API on port 8080
+```
+
+Shortly after, the bootstrap loads the initial data and the log reaction outputs the 4 messages:
+
+```
+[log-reaction] Query 'my-query' (1 items):
+[log-reaction]   [ADD] {"from":"Buzz Lightyear","message":"To infinity and beyond!","messageid":"1"}
+[log-reaction] Query 'my-query' (1 items):
+[log-reaction]   [ADD] {"from":"Brian Kernighan","message":"Hello World","messageid":"2"}
+[log-reaction] Query 'my-query' (1 items):
+[log-reaction]   [ADD] {"from":"Antoninus","message":"I am Spartacus","messageid":"3"}
+[log-reaction] Query 'my-query' (1 items):
+[log-reaction]   [ADD] {"from":"David","message":"I am Spartacus","messageid":"4"}
+```
+
+> **Note:** The messages may appear in a different order and may be interleaved with other log lines. This is normal — bootstrapped data is processed asynchronously.
+
+> **Tip:** You can customize the log output format using templates. See [Configure Log Reaction](../how-to-guides/configuration/configure-reactions/configure-log-reaction/) for details.
 
 ### Test Real-Time Changes
 
-Open a **new terminal** and insert a message:
+Open a **new terminal** and run the following command to insert a record into the `message` table:
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO message (\"from\", message) VALUES ('You', 'My first message!');"
 ```
 
-Watch the Drasi Server console — your message appears instantly!
+Watch the Drasi Server console — notification of a change to the `my-query` Continuous Query result appears instantly thanks to the Log Reaction!
 
 ```
-[my-query] + {"messageid":5,"from":"You","message":"My first message!"}
+[log-reaction] Query 'my-query' (1 items):
+[log-reaction]   [ADD] {"from":"You","message":"My first message!","messageid":"5"}
 ```
 
-**✅ Checkpoint**: You've created your first Source, Query, and Reaction. Changes in the database flow through Drasi and appear in the console in real-time.
+**✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. Changes in the database flow through Drasi Server and notification of data changes appear in the console instantly.
 
 ---
 
