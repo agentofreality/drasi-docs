@@ -68,13 +68,13 @@ After completing your preferred setup, return here to continue with the tutorial
 
 ## Step 2: Start the Tutorial Database {#database}
 
-The tutorial uses a PostgreSQL database. Start the database in Docker using the following Docker Compose command:
+The tutorial uses a PostgreSQL database. Start the database container using Docker Compose:
 
 ```bash
 docker compose -f examples/getting-started/database/docker-compose.yml up -d
 ```
 
-Verify the database is running with the following command:
+Verify the database container is running:
 
 ```bash
 docker compose -f examples/getting-started/database/docker-compose.yml ps
@@ -109,6 +109,22 @@ During database setup, the `Message` table was populated with these messages:
 | 3 | Antoninus | I am Spartacus |
 | 4 | David | I am Spartacus |
 
+### Initialize the Database
+
+Once the container is running, initialize the database schema and sample data:
+
+```bash
+docker cp examples/getting-started/database/init.sql getting-started-postgres:/tmp/
+docker exec getting-started-postgres psql -U postgres -d getting_started -f /tmp/init.sql
+```
+
+You should see output ending with:
+```
+NOTICE:  Getting Started database initialized successfully!
+NOTICE:  Tables: message
+NOTICE:  Publication: drasi_getting_started_pub
+NOTICE:  Replication slot: drasi_getting_started_slot
+```
 
 ---
 
