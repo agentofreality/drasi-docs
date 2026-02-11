@@ -2,7 +2,7 @@
 type: "docs"
 title: "Setup: Dev Container"
 linkTitle: "Dev Container"
-weight: 30
+weight: 20
 description: "Run Drasi Server in a VS Code Dev Container"
 ---
 

@@ -8,29 +8,21 @@ hide_readingtime: true
 description: "Build your first change-driven solution with Drasi Server"
 ---
 
-This Getting Started tutorial teaches you how to use Drasi Server by demonstrating how to create {{< term "Source" "Sources" >}}, {{< term "Continuous Query" "Continuous Queries" >}}, and {{< term "Reaction" "Reactions" >}}. You'll use the `drasi-server init` command to create your initial configuration, then progressively add queries and reactions to learn each concept.
+This Getting Started tutorial teaches you how to use Drasi Server by demonstrating how to create {{< term "Source" "Sources" >}}, {{< term "Continuous Query" "Continuous Queries" >}}, and {{< term "Reaction" "Reactions" >}}. You'll use the `drasi-server init` command to create an initial simple configuration file, then progressively extend the configuration to explore more Drasi Server functionality. 
 
 **Time**: ~30 minutes
 
 **What you'll learn**:
-- How to create a Source that connects to PostgreSQL
-- How to write Continuous Queries that detect specific changes, track aggregations, and identify patterns over time
-- How to configure Reactions that notify downstream systems of query result changes
+- How to use `drasi-server init` to scaffold your initial configuration, then iteratively edit, validate, and extend it
+- How to create Sources that connect Drasi to PostgreSQL and HTTP data sources
+- How to write Continuous Queries that detect specific changes, track aggregations, identify time-based data patterns, and join data across multiple disparate Sources
+- How to configure Reactions that distribute notifications of query result changes to downstream systems
 
 ## Step 1: Set Up Your Environment {#setup}
 
-Choose your preferred environment for working through the Getting Started tutorial. Each approach gets you to the same starting point: Drasi Server ready to run and a PostgreSQL database setup to use as a data source in the tutorial.
+Choose your preferred environment for working through the Getting Started tutorial. Each approach gets you to the same starting point with Drasi Server installed and ready to run the tutorial.
 
 <div class="card-grid">
-  <a href="download-binary/">
-    <div class="unified-card unified-card--tutorials">
-      <div class="unified-card-icon"><i class="fas fa-download"></i></div>
-      <div class="unified-card-content">
-        <h3 class="unified-card-title">Download Binary</h3>
-        <p class="unified-card-summary">Download a prebuilt binary for macOS or Linux. The fastest way to get started.</p>
-      </div>
-    </div>
-  </a>
   <a href="github-codespace/">
     <div class="unified-card unified-card--tutorials">
       <div class="unified-card-icon"><i class="fab fa-github"></i></div>
@@ -46,6 +38,15 @@ Choose your preferred environment for working through the Getting Started tutori
       <div class="unified-card-content">
         <h3 class="unified-card-title">Dev Container</h3>
         <p class="unified-card-summary">VS Code Dev Container with all dependencies preconfigured.</p>
+      </div>
+    </div>
+  </a>
+  <a href="download-binary/">
+    <div class="unified-card unified-card--tutorials">
+      <div class="unified-card-icon"><i class="fas fa-download"></i></div>
+      <div class="unified-card-content">
+        <h3 class="unified-card-title">Download Binary</h3>
+        <p class="unified-card-summary">Download a prebuilt binary for macOS or Linux. The fastest way to get started.</p>
       </div>
     </div>
   </a>
@@ -68,7 +69,7 @@ After completing your preferred setup, return here to continue with the tutorial
 
 ## Step 2: Setup the Tutorial Database {#database}
 
-The tutorial uses a PostgreSQL database. Start the database container using Docker Compose:
+The tutorial uses a PostgreSQL database as a data source. Start the database container using Docker Compose:
 
 ```bash
 docker compose -f examples/getting-started/database/docker-compose.yml up -d
@@ -82,12 +83,12 @@ docker compose -f examples/getting-started/database/docker-compose.yml ps
 
 You should see the `getting-started-postgres` container with a status of `Up`:
 
-```
+```text
 NAME                       IMAGE                COMMAND                  SERVICE    CREATED          STATUS                    PORTS
 getting-started-postgres   postgres:14-alpine   "docker-entrypoint.s…"   postgres   31 seconds ago   Up 30 seconds (healthy)   0.0.0.0:5432->5432/tcp
 ```
 
-If the container shows a different status or you see errors, check the container logs with `docker compose -f examples/getting-started/database/docker-compose.yml logs`. See the [Docker Compose documentation](https://docs.docker.com/compose/how-tos/troubleshoot/) for additional troubleshooting help.
+If the container shows a different status or you see errors, check the container logs with `docker compose -f examples/getting-started/database/docker-compose.yml logs`. See the [Docker Compose documentation](https://docs.docker.com/compose/) for additional troubleshooting help.
 
 ### Initialize the Database
 
@@ -100,7 +101,7 @@ The tutorial uses a simple `Message` table with the following schema:
 | MessageId | integer | Unique message identifier |
 | From | varchar(50) | Who sent the message |
 | Message | varchar(200) | The message content |
-| created_at | timestamp | When the message was sent |
+| CreatedAt | timestamp | When the message was sent |
 
 <div style="margin-top: 1.5rem;"></div>
 
@@ -115,22 +116,17 @@ The `Message` table is initially populated with these messages:
 
 <div style="margin-top: 1.5rem;"></div>
 
-Copy the `init.sql` script into the container:
+Run the database initialization script:
 
 ```bash
-docker cp examples/getting-started/database/init.sql getting-started-postgres:/tmp/
+docker exec -i getting-started-postgres psql -U postgres -d getting_started < examples/getting-started/database/init.sql
 ```
 
-Run the initialization script inside the container:
+You should see:
 
-```bash
-docker exec getting-started-postgres psql -U postgres -d getting_started -f /tmp/init.sql
-```
-
-You should see output ending with:
-```
+```text
 NOTICE:  Getting Started database initialized successfully!
-NOTICE:  Tables: message
+NOTICE:  Tables: Message
 NOTICE:  Publication: drasi_pub
 NOTICE:  Replication slot: drasi_slot
 ```
@@ -138,13 +134,13 @@ NOTICE:  Replication slot: drasi_slot
 Verify the sample data was loaded:
 
 ```bash
-docker exec getting-started-postgres psql -U drasi_user -d getting_started -c "SELECT * FROM message;"
+docker exec getting-started-postgres psql -U drasi_user -d getting_started -c 'SELECT * FROM "Message";'
 ```
 
 You should see the 4 sample messages:
 
-```
- messageid |      from       |         message          |         created_at         
+```text
+ MessageId |      From       |         Message          |         CreatedAt          
 -----------+-----------------+--------------------------+----------------------------
          1 | Buzz Lightyear  | To infinity and beyond!  | 2026-02-10 21:30:08.123456
          2 | Brian Kernighan | Hello World              | 2026-02-10 21:30:08.123456
@@ -159,7 +155,11 @@ You should see the 4 sample messages:
 
 Now you'll create your initial Drasi Server configuration using the interactive `drasi-server init` command.
 
-The `init` command walks you through an interactive wizard that will assist you in creating a correctly formatted Drasi Server config file. The wizard will only write the config file at the end, so if you make a mistake just break out of the wizard using `ctrl-c` and run `drasi-server init` again. The `init` command cannot be used to edit existing config files, you must edit them manually in your text editor.
+The `init` command walks you through an interactive wizard that will assist you in creating a correctly formatted Drasi Server config file. The wizard will only write the config file at the end, so if you make a mistake just break out of the wizard using `ctrl-c` and run `drasi-server init` again. 
+
+
+> **Note:** The `init` command cannot be used to edit existing config files, you must edit them in your preferred text editor.
+
 
 ### Create the Drasi Server Configuration
 
@@ -183,6 +183,20 @@ Configuration starts with general Drasi Server settings.
 | **Enable persistent indexing (RocksDB)?** | `No` (default) | Press Enter to accept |
 | **State store** | `None` | Use arrow keys to select "None - In-memory state" |
 
+<div style="margin-top: 1.5rem;"></div>
+
+Your terminal should show this once you have completed the Server Settings section of the wizard:
+
+```text
+Server Settings
+---------------
+> Server host: 0.0.0.0
+> Server port: 8080
+> Log level: info
+> Enable persistent indexing (RocksDB)? No
+> State store (for plugin state persistence): None - In-memory state (lost on restart)
+```
+
 #### 2. Data Sources
 
 After configuring server settings, you'll add a data source. For this tutorial, use the arrow keys to highlight **PostgreSQL**, press Space to select the source, then Enter.
@@ -197,27 +211,67 @@ After selecting PostgreSQL, you'll configure the database connection settings:
 | **Database name** | `getting_started` | The tutorial database |
 | **Database user** | `drasi_user` | |
 | **Database password** | `drasi_password` | Type the password (characters won't display) and press Enter |
-| **Tables to monitor** | `message` | The table we'll query |
+| **Tables to monitor** | `Message` | The table we'll query |
 | **Configure table keys for tables without primary keys??** | `Yes` | Required for CDC change tracking |
-| **Does table 'message' need key columns specified?** | `Yes` | Need to configure tableKey for `message` table |
-| **Key columns for 'message'** | `messageid` | The message table's primary key |
+| **Does table 'Message' need key columns specified?** | `Yes` | Need to configure tableKey for `Message` table |
+| **Key columns for 'Message'** | `MessageId` | The Message table's primary key |
 | **Bootstrap provider** | `PostgreSQL` | Use arrow keys to select "PostgreSQL - Load initial data" |
 
 > **Why `${DB_HOST:-localhost}`?** This uses Drasi Server's environment variable interpolation. When running locally (Download Binary or Build from Source), it defaults to `localhost`. In a Dev Container or Codespace, the `DB_HOST` environment variable is automatically set to `getting-started-postgres` (the container name on the shared Docker network).
 
+
+<div style="margin-top: 1.5rem;"></div>
+
+Your terminal should show this once you complete the Data Source section of the wizard:
+
+```text
+Data Sources
+------------
+Select one or more data sources for your configuration.
+
+> Select sources (space to select, enter to confirm): PostgreSQL - CDC from PostgreSQL database
+
+Configuring PostgreSQL Source
+------------------------------
+> Source ID: my-postgres
+> Database host: ${DB_HOST:-localhost}
+> Database port: 5432
+> Database name: getting_started
+> Database user: drasi_user
+> Database password: ********
+> Tables to monitor (comma-separated): Message
+> Configure table keys for tables without primary keys? Yes
+> Does table 'Message' need key columns specified? Yes
+> Key columns for 'Message' (comma-separated): MessageId
+> Bootstrap provider (for initial data loading): PostgreSQL - Load initial data from PostgreSQL
+```
+
 #### 3. Reactions
 
-Finally, add a Reaction to see query results. Use the arrow keys to highlight **Log**, press Space to select the Reaction, then Enter.
+Finally, you will add a Reaction to process changes to the Continuous Query results. 
+
+Use the arrow keys to highlight **Log**, press Space to select the Reaction, then Enter.
 
 After selecting Log, you'll configure the following settings:
 
 | Prompt | Enter | Notes |
 |--------|-------|-------|
 | **Reaction ID** | `log-reaction` (default) | Press Enter to accept |
+ 
+After completing the Reactions section of the wizard, your terminal will show the following:
 
-After completing the wizard, you'll see the following output:
+```text
+Reactions
+---------
+Select how you want to receive query results.
 
-```
+> Select reactions (space to select, enter to confirm): Log - Write query results to console
+
+Configuring Log Reaction
+------------------------
+> Reaction ID: log-reaction
+
+
 Configuration saved to: my-config.yaml
 
 Next steps:
@@ -225,11 +279,11 @@ Next steps:
   2. Run: drasi-server --config my-config.yaml
 ```
 
-### Update the Query
+### Update the Default Continuous Query
 
-The wizard created a default Continuous Query that returns all changes to Source. Now you'll edit the Continuous Query to return only `message` nodes and to rename some of their fields for clarity.
+The wizard created a default Continuous Query that selects all nodes from the `my-postgres` Source. Now you'll edit the Continuous Query to select only `message` nodes and to rename some of their fields for clarity.
 
-Open `my-config.yaml` in your preferred editor and find the `queries` section. The wizard's default query looks like this:
+Open `my-config.yaml` in your preferred editor and find the `queries` section. The wizard's default Continuous Query looks like this:
 
 ```yaml
 queries:
@@ -247,20 +301,34 @@ queries:
   bootstrapBufferSize: 10000
 ```
 
-Replace the entire `query:` line with a multi-line query that returns messages:
+Replace the `id` and `query` settings as shown here:
 
 ```yaml
 queries:
-  - id: my-query
+  - id: all-messages
     autoStart: true
     query: |
-      MATCH (m:message)
-      RETURN m.messageid AS messageid, m.from AS from, m.message AS message
+      MATCH (m:Message)
+      RETURN m.MessageId AS MessageId, m.From AS From, m.Message AS Message
     queryLanguage: GQL
     ...
 ```
 
-The `|` character allows you to write the query across multiple lines for readability. The label `message` must match the table name exactly (labels are case-sensitive). Leave the other fields (`queryLanguage`, `sources`, etc.) as they are.
+The `|` character allows you to write the query across multiple lines for readability. The `Message` label in the `Match` clause must match the table name exactly (labels are case-sensitive). Leave the other fields (`queryLanguage`, `sources`, etc.) as they are.
+
+### Update the Log Reaction
+Because you changed the Continuous Query's `id` from `my-query` to `all-messages`, you need to update the Log Reaction's configuration to subscribe to the new Continuous Query ID.
+
+Find the `reactions` section in your config file and update the `queries` field to reference the new query ID as shown here:
+
+```yaml
+reactions:
+  - kind: log
+    id: log-reaction
+    queries:
+      - all-messages    # Update this from my-query to all-messages
+    autoStart: true
+```
 
 ### Run Drasi Server
 
@@ -268,7 +336,7 @@ The `|` character allows you to write the query across multiple lines for readab
 ./bin/drasi-server --config my-config.yaml
 ```
 
-You'll see detailed startup logs as Drasi Server initializes sources, queries, and reactions. There's a lot of output — look for these key lines:
+You'll see detailed startup logs as Drasi Server initializes all configured Sources, Continuous Queries, and Reactions. There's a lot of output, so look for these key lines:
 
 ```
 Starting Drasi Server
@@ -277,25 +345,29 @@ Starting Drasi Server
   Log level: info
 ```
 
+This shows the name of the config file being used, the log level that controls the output to the console, and the port on which the Drasi Server management API is accessible.
+
 ```
-[log-reaction] Started - receiving results from queries: ["my-query"]
+[log-reaction] Started - receiving results from queries: ["all-messages"]
 ```
+
+This confirms that the `log-reaction` Reaction is subscribed to Query Result Change notifications from the `all-messages` Continuous Query.
 
 ```
 Drasi Server started successfully with API on port 8080
 ```
 
-Shortly after, the bootstrap loads the initial data and the log reaction outputs the 4 messages:
+Shortly after, the bootstrap process loads the initial data from the `Messages` table and the Log Reaction outputs the 4 messages representing additions to the `all-messages` query's result set:
 
 ```
-[log-reaction] Query 'my-query' (1 items):
-[log-reaction]   [ADD] {"from":"Buzz Lightyear","message":"To infinity and beyond!","messageid":"1"}
-[log-reaction] Query 'my-query' (1 items):
-[log-reaction]   [ADD] {"from":"Brian Kernighan","message":"Hello World","messageid":"2"}
-[log-reaction] Query 'my-query' (1 items):
-[log-reaction]   [ADD] {"from":"Antoninus","message":"I am Spartacus","messageid":"3"}
-[log-reaction] Query 'my-query' (1 items):
-[log-reaction]   [ADD] {"from":"David","message":"I am Spartacus","messageid":"4"}
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"From":"Buzz Lightyear","Message":"To infinity and beyond!","MessageId":"1"}
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"From":"Brian Kernighan","Message":"Hello World","MessageId":"2"}
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"From":"Antoninus","Message":"I am Spartacus","MessageId":"3"}
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"From":"David","Message":"I am Spartacus","MessageId":"4"}
 ```
 
 > **Note:** The messages may appear in a different order and may be interleaved with other log lines. This is normal — bootstrapped data is processed asynchronously.
@@ -308,14 +380,14 @@ Open a **new terminal** and run the following command to insert a record into th
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO message (\"from\", message) VALUES ('You', 'My first message!');"
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('You', 'My first message!');"
 ```
 
-Watch the Drasi Server console — notification of a change to the `my-query` Continuous Query result appears instantly thanks to the Log Reaction!
+Watch the Drasi Server console — notification of a change to the `all-messages` Continuous Query result appears instantly thanks to the Log Reaction!
 
-```
-[log-reaction] Query 'my-query' (1 items):
-[log-reaction]   [ADD] {"from":"You","message":"My first message!","messageid":"5"}
+```text
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"n":"Element(Node { metadata: ElementMetadata { reference: ElementReference { source_id: \"my-postgres\", element_id: \"Message:5\" }, labels: [\"Message\"], effective_from: 1770778392526 }, properties: ElementPropertyMap { values: {\"CreatedAt\": String(\"2026-02-11 02:53:12.522474\"), \"From\": String(\"You\"), \"Message\": String(\"My first message!\"), \"MessageId\": Integer(5)} } })"}
 ```
 
 **✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. Changes in the database flow through Drasi Server and notification of data changes appear in the console instantly.
@@ -337,22 +409,24 @@ queries:
   - id: hello-world-senders
     autoStart: true
     sources:
-      - sourceId: my-postgres  # Use the source ID you created
+      - sourceId: my-postgres
     query: |
-      MATCH (m:message)
-      WHERE m.message = 'Hello World'
-      RETURN m.messageid AS Id, m.from AS Sender
+      MATCH (m:Message)
+      WHERE m.Message = 'Hello World'
+      RETURN m.MessageId AS Id, m.From AS Sender
     queryLanguage: Cypher
 ```
 
-Then update the `reactions:` section to subscribe to the new query:
+Notice that the new `hello-world-senders` Continuous Query defines the same `my-postgres` Source used by the original `all-messages` Continuous Query meaning both Continuous Queries share the same Source. Also the `hello-world-senders` Continuous Query has the setting `queryLanguage: Cypher`; Drasi Server supports Continuous Queries written in both GQL and openCypher.
+
+Then update the `reactions:` section to configure `log-reaction` to subscribe to the new `hello-world-senders` query:
 
 ```yaml
 reactions:
   - kind: log
     id: log-reaction
     queries:
-      - my-query
+      - all-messages
       - hello-world-senders  # Add the new query
     autoStart: true
 ```
@@ -382,12 +456,12 @@ Now you have two queries running. The new `hello-world-senders` query only shows
 ```bash
 # This WILL appear in hello-world-senders (meets the WHERE criteria)
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO message (\"from\", message) VALUES ('Alice', 'Hello World');"
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Hello World');"
 ```
 
 Watch the console:
 ```
-[my-query] + {"messageid":6,"from":"Alice","message":"Hello World"}
+[all-messages] + {"MessageId":6,"From":"Alice","Message":"Hello World"}
 [hello-world-senders] + {"Id":6,"Sender":"Alice"}
 ```
 
@@ -396,12 +470,12 @@ Now try a message that doesn't match the criteria:
 ```bash
 # This will NOT appear in hello-world-senders (different message text)
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO message (\"from\", message) VALUES ('Bob', 'Goodbye World');"
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Bob', 'Goodbye World');"
 ```
 
 The console shows:
 ```
-[my-query] + {"messageid":7,"from":"Bob","message":"Goodbye World"}
+[all-messages] + {"MessageId":7,"From":"Bob","Message":"Goodbye World"}
 ```
 
 Notice that `hello-world-senders` didn't produce any output — the new message doesn't meet the `WHERE` criteria, so it isn't part of the query's result set. The Reaction is only notified of changes to the result set.
@@ -427,8 +501,8 @@ queries:
     sources:
       - sourceId: my-postgres
     query: |
-      MATCH (m:message)
-      RETURN m.message AS Message, count(m) AS Count
+      MATCH (m:Message)
+      RETURN m.Message AS MessageText, count(m) AS Count
     queryLanguage: Cypher
 ```
 
@@ -439,7 +513,7 @@ reactions:
   - kind: log
     id: log-reaction
     queries:
-      - my-query
+      - all-messages
       - hello-world-senders
       - message-counts  # Add the new query
     autoStart: true
@@ -454,24 +528,24 @@ reactions:
 
 You'll see the aggregated counts in the initial output:
 ```
-[message-counts] + {"Message":"To infinity and beyond!","Count":1}
-[message-counts] + {"Message":"Hello World","Count":2}
-[message-counts] + {"Message":"I am Spartacus","Count":2}
-[message-counts] + {"Message":"My first message!","Count":1}
-[message-counts] + {"Message":"Goodbye World","Count":1}
+[message-counts] + {"MessageText":"To infinity and beyond!","Count":1}
+[message-counts] + {"MessageText":"Hello World","Count":2}
+[message-counts] + {"MessageText":"I am Spartacus","Count":2}
+[message-counts] + {"MessageText":"My first message!","Count":1}
+[message-counts] + {"MessageText":"Goodbye World","Count":1}
 ```
 
 ### Test Aggregation Updates
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO message (\"from\", message) VALUES ('Eve', 'Hello World');"
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Eve', 'Hello World');"
 ```
 
 Watch the count update automatically:
 ```
-[message-counts] - {"Message":"Hello World","Count":2}
-[message-counts] + {"Message":"Hello World","Count":3}
+[message-counts] - {"MessageText":"Hello World","Count":2}
+[message-counts] + {"MessageText":"Hello World","Count":3}
 ```
 
 The `-` shows the old value being removed, and `+` shows the new value. The count for "Hello World" incremented from 2 to 3.
@@ -497,8 +571,8 @@ queries:
     sources:
       - sourceId: my-postgres
     query: |
-      MATCH (m:message)
-      WITH m.from AS Sender, max(m.created_at) AS LastSeen
+      MATCH (m:Message)
+      WITH m.From AS Sender, max(m.CreatedAt) AS LastSeen
       WHERE LastSeen < datetime() - duration('PT20S')
       RETURN Sender, LastSeen
     queryLanguage: Cypher
@@ -511,7 +585,7 @@ reactions:
   - kind: log
     id: log-reaction
     queries:
-      - my-query
+      - all-messages
       - hello-world-senders
       - message-counts
       - inactive-senders  # Add the new query
@@ -538,7 +612,7 @@ After about 20 seconds of inactivity, senders will start appearing in the `inact
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO message (\"from\", message) VALUES ('Alice', 'Still here!');"
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Still here!');"
 ```
 
 Watch Alice disappear from the inactive list (she just sent a message). After 20 more seconds of inactivity, she'll reappear.
@@ -597,7 +671,7 @@ Insert more messages and watch the browser update in real-time — no page refre
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO message (\"from\", message) VALUES ('Charlie', 'Hello World');"
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Charlie', 'Hello World');"
 ```
 
 **✅ Checkpoint**: You understand that queries can feed multiple reactions, and reactions can output to different destinations (console, browser, webhooks, etc.).
@@ -644,20 +718,20 @@ queries:
       - sourceId: my-postgres
       - sourceId: location-tracker
     query: |
-      MATCH (m:message)-[:FROM_USER]->(u:UserLocation)
-      RETURN m.messageid AS Id, m.message AS Message, 
-             m.from AS Sender, u.location AS Location, u.status AS Status
+      MATCH (m:Message)-[:FROM_USER]->(u:UserLocation)
+      RETURN m.MessageId AS Id, m.Message AS Message, 
+             m.From AS Sender, u.location AS Location, u.status AS Status
     queryLanguage: Cypher
     joins:
       - id: FROM_USER
         keys:
-          - label: message
-            property: from
+          - label: Message
+            property: From
           - label: UserLocation
             property: name
 ```
 
-The `joins` section creates a virtual relationship `FROM_USER` that connects `message.from` to `UserLocation.name`.
+The `joins` section creates a virtual relationship `FROM_USER` that connects `Message.From` to `UserLocation.name`.
 
 Update the `log-reaction` to include the new query:
 
@@ -666,7 +740,7 @@ reactions:
   - kind: log
     id: log-reaction
     queries:
-      - my-query
+      - all-messages
       - hello-world-senders
       - message-counts
       - inactive-senders
@@ -713,7 +787,7 @@ When a new user starts sending messages, add their location:
 ```bash
 # First, send a message from a new user
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO message (\"from\", message) VALUES ('Alice', 'Good morning!');"
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Good morning!');"
 
 # Then add Alice's location
 curl -X POST http://localhost:9000 -H "Content-Type: application/json" -d '{

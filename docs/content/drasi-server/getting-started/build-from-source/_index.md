@@ -43,6 +43,15 @@ rustc --version   # Should be 1.88.0 or later
 cargo --version
 ```
 
+If the Rust compiler and Cargo package manager are installed, you should see output like:
+
+```
+rustc 1.88.0 (6b00bc388 2025-06-23)
+cargo 1.88.0 (873a06493 2025-05-10)
+```
+
+With the prerequisites verified, you're ready to clone the repository and build Drasi Server from source.
+
 ## Step 1: Clone and Build
 
 Clone the repository and build Drasi Server:
@@ -54,7 +63,7 @@ cargo install --path . --root . --locked
 ```
 This takes several minutes on first build.
 
-The `--root .` flag tells Cargo to install the Drasi Server binary to `./bin/drasi-server` in the current directory, which is where the tutorial expects it.
+The `--root .` flag tells Cargo to install the Drasi Server binary to `./bin/drasi-server` in the current directory, which is where the tutorial assumes it will be.
 
 ## Step 2: Verify the Build
 

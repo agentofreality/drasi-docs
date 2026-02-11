@@ -2,7 +2,7 @@
 type: "docs"
 title: "Setup: Download Binary"
 linkTitle: "Download Binary"
-weight: 10
+weight: 30
 description: "Download a prebuilt Drasi Server binary for macOS or Linux"
 ---
 

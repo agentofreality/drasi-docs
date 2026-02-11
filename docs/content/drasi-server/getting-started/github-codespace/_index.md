@@ -2,7 +2,7 @@
 type: "docs"
 title: "Setup: GitHub Codespace"
 linkTitle: "GitHub Codespace"
-weight: 20
+weight: 10
 description: "Run Drasi Server in a cloud-based GitHub Codespace"
 ---
 

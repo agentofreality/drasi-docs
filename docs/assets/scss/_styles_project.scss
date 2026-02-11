@@ -66,6 +66,14 @@ body:has(.hero-section) .td-breadcrumbs {
   }
 }
 
+// Override Docsy's 80% max-width constraint on content elements
+// Allow text content to use the full width of the content column
+.td-max-width-on-larger-screens {
+  @include media-breakpoint-up(lg) {
+    max-width: 100%;
+  }
+}
+
 // =============================================================================
 // SECTION PAGE CLEANUP
 // Hide redundant lead description when custom section-header is present
