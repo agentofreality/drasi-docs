@@ -8,15 +8,19 @@ hide_readingtime: true
 description: "Build your first change-driven solution with Drasi Server"
 ---
 
-This Getting Started tutorial teaches you how to use Drasi Server by demonstrating how to create {{< term "Source" "Sources" >}}, {{< term "Continuous Query" "Continuous Queries" >}}, and {{< term "Reaction" "Reactions" >}}. You'll use the `drasi-server init` command to create an initial simple configuration file, then progressively extend the configuration to explore more Drasi Server functionality. 
+This Getting Started tutorial teaches you how to use Drasi Server by progressively building a change-driven solution. You'll start with a simple configuration and extend it step by step — each step introduces a new Drasi capability.
 
-**Time**: ~30 minutes
+| Step | What You'll Learn | Time |
+|------|-------------------|------|
+| **[Step 1: Set Up Your Environment](#setup)** | Install Drasi Server and set up your development environment | 5 min |
+| **[Step 2: Set Up the Tutorial Database](#database)** | Start a PostgreSQL database and load sample data | 3 min |
+| **[Step 3: Create Your First Configuration](#phase-1)** | Use `drasi-server init` to create a Source, Continuous Query, and Log Reaction — see changes flow through Drasi in real time | 10 min |
+| **[Step 4: Add a Query with Criteria](#phase-2)** | Add a filtered query via the REST API — learn how `WHERE` clauses control which changes generate notifications | 3 min |
+| **[Step 5: Add an Aggregation Query](#phase-3)** | Add a query with `count()` — see aggregations update automatically as data changes | 3 min |
+| **[Step 6: Add Time-Based Detection](#phase-4)** | Detect the *absence* of activity over time and add an SSE Reaction for browser-based streaming | 5 min |
+| **[Step 7: Add Cross-Source Joins](#phase-5)** | Add an HTTP Source and join its data with PostgreSQL data using virtual relationships | 5 min |
 
-**What you'll learn**:
-- How to use `drasi-server init` to scaffold your initial configuration, then iteratively edit, validate, and extend it
-- How to create Sources that connect Drasi to PostgreSQL and HTTP data sources
-- How to write Continuous Queries that detect specific changes, track aggregations, identify time-based data patterns, and join data across multiple disparate Sources
-- How to configure Reactions that distribute notifications of query result changes to downstream systems
+**Steps 1–3** give you a working Drasi Server example in under 20 minutes. **Steps 4–7** are optional and explore progressively advanced capabilities — complete as many as you like.
 
 ## Step 1: Set Up Your Environment {#setup}
 
@@ -178,7 +182,7 @@ Configuration starts with general Drasi Server settings.
 | Prompt | Enter | Notes |
 |--------|-------|-------|
 | **Server host** | `0.0.0.0` (default) | Press Enter to accept |
-| **Server port** | `8080` (default) | Press Enter to accept |
+| **Server port** | `${SERVER_PORT:-8080}` | Uses env var with 8080 as default (see note below) |
 | **Log level** | `info` | Use arrow keys to select |
 | **Enable persistent indexing (RocksDB)?** | `No` (default) | Press Enter to accept |
 | **State store** | `None` | Use arrow keys to select "None - In-memory state" |
@@ -191,11 +195,13 @@ Your terminal should show this once you have completed the Server Settings secti
 Server Settings
 ---------------
 > Server host: 0.0.0.0
-> Server port: 8080
+> Server port: ${SERVER_PORT:-8080}
 > Log level: info
 > Enable persistent indexing (RocksDB)? No
 > State store (for plugin state persistence): None - In-memory state (lost on restart)
 ```
+
+> **Environment variables in config values:** The `${SERVER_PORT:-8080}` syntax tells Drasi Server to use the value of the `SERVER_PORT` environment variable, falling back to `8080` if it isn't set. You can use this `${VAR:-default}` pattern in any configuration value.
 
 #### 2. Data Sources
 
@@ -206,8 +212,8 @@ After selecting PostgreSQL, you'll configure the database connection settings:
 | Prompt | Enter | Notes |
 |--------|-------|-------|
 | **Source ID** | `my-postgres` | A unique name for this source |
-| **Database host** | `${DB_HOST:-localhost}` | Uses env var with localhost as default (see note below) |
-| **Database port** | `5432` (default) | Press Enter to accept |
+| **Database host** | `${DB_HOST:-localhost}` | Defaults to `localhost` if `DB_HOST` is not set |
+| **Database port** | `${POSTGRES_HOST_PORT:-5432}` | Defaults to `5432` if `POSTGRES_HOST_PORT` is not set |
 | **Database name** | `getting_started` | The tutorial database |
 | **Database user** | `drasi_user` | |
 | **Database password** | `drasi_password` | Type the password (characters won't display) and press Enter |
@@ -216,8 +222,6 @@ After selecting PostgreSQL, you'll configure the database connection settings:
 | **Does table 'Message' need key columns specified?** | `Yes` | Need to configure tableKey for `Message` table |
 | **Key columns for 'Message'** | `MessageId` | The Message table's primary key |
 | **Bootstrap provider** | `PostgreSQL` | Use arrow keys to select "PostgreSQL - Load initial data" |
-
-> **Why `${DB_HOST:-localhost}`?** This uses Drasi Server's environment variable interpolation. When running locally (Download Binary or Build from Source), it defaults to `localhost`. In a Dev Container or Codespace, the `DB_HOST` environment variable is automatically set to `getting-started-postgres` (the container name on the shared Docker network).
 
 
 <div style="margin-top: 1.5rem;"></div>
@@ -235,7 +239,7 @@ Configuring PostgreSQL Source
 ------------------------------
 > Source ID: my-postgres
 > Database host: ${DB_HOST:-localhost}
-> Database port: 5432
+> Database port: ${POSTGRES_HOST_PORT:-5432}
 > Database name: getting_started
 > Database user: drasi_user
 > Database password: ********
@@ -281,7 +285,7 @@ Next steps:
 
 ### Update the Default Continuous Query
 
-The wizard created a default Continuous Query that selects all nodes from the `my-postgres` Source. Now you'll edit the Continuous Query to select only `message` nodes and to rename some of their fields for clarity.
+The wizard created a default Continuous Query that selects all nodes from the `my-postgres` Source. Now you'll edit the Continuous Query to select only `Message` nodes and to rename some of their fields for clarity.
 
 Open `getting-started.yaml` in your preferred editor and find the `queries` section. The wizard's default Continuous Query looks like this:
 
@@ -332,6 +336,8 @@ reactions:
 
 ### Run Drasi Server
 
+Run Drasi Server with your new configuration using the following command:
+
 ```bash
 ./bin/drasi-server --config getting-started.yaml
 ```
@@ -341,7 +347,7 @@ You'll see detailed startup logs as Drasi Server initializes all configured Sour
 ```
 Starting Drasi Server
   Config file: getting-started.yaml
-  API Port: 8080
+  API Port: ${SERVER_PORT:-8080}
   Log level: info
 ```
 
@@ -354,7 +360,7 @@ This shows the name of the config file being used, the log level that controls t
 This confirms that the `log-reaction` Reaction is subscribed to Query Result Change notifications from the `all-messages` Continuous Query.
 
 ```
-Drasi Server started successfully with API on port 8080
+Drasi Server started successfully with API on port ${SERVER_PORT:-8080}
 ```
 
 Shortly after, the bootstrap process loads the initial data from the `Messages` table and the Log Reaction outputs the 4 messages representing additions to the `all-messages` query's result set:
@@ -392,14 +398,16 @@ Watch the Drasi Server console — notification of a change to the `all-messages
 
 ### View Continuous Query Results
 
-Drasi Server provides a [REST API](../reference/rest-api/) through which you can view the current result set of any Continuous Query. Click the following URL to view the current result set of the `all-messages` Continuous Query in your browser:
+Drasi Server provides a [REST API](../reference/rest-api/) through which you can view the current result set of any Continuous Query. Open the following URL in your browser to view the current result set of the `all-messages` Continuous Query:
 
-<a href="http://localhost:8080/api/v1/queries/all-messages/results" target="_blank">http://localhost:8080/api/v1/queries/all-messages/results</a>
+<a href="http://localhost:8080/api/v1/queries/all-messages/results" target="_blank">http://localhost:&lt;SERVER_PORT&gt;/api/v1/queries/all-messages/results</a>
+
+> **Note:** Replace `<SERVER_PORT>` with `8080` (Download Binary / Build from Source) or `8180` (Dev Container / Codespace).
 
 Or use `curl` from your second terminal:
 
 ```bash
-curl -s http://localhost:8080/api/v1/queries/all-messages/results
+curl -s http://localhost:${SERVER_PORT:-8080}/api/v1/queries/all-messages/results
 ```
 
 Either way, you should see the current result set for the `all-messages` query, including the message you just inserted:
@@ -434,7 +442,7 @@ Either way, you should see the current result set for the `all-messages` query, 
 ]
 ```
 
-> **Tip:** The Drasi Server REST API also provides a Swagger UI at **http://localhost:8080/api/v1/docs/** where you can explore all available endpoints interactively.
+> **Tip:** The Drasi Server REST API also provides a Swagger UI at **http://localhost:&lt;SERVER_PORT&gt;/api/v1/docs/** where you can explore all available endpoints interactively.
 
 <div style="margin-top: 1.5rem;"></div>
 
@@ -451,7 +459,7 @@ Now you'll dynamically add a second Continuous Query and update the Log Reaction
 In your second terminal, create a new Continuous Query that only includes messages containing "Hello World":
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/queries \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "hello-world-senders",
@@ -472,10 +480,10 @@ To subscribe the Log Reaction to the new query, you need to delete and re-create
 
 ```bash
 # Delete the existing log reaction
-curl -X DELETE http://localhost:8080/api/v1/reactions/log-reaction
+curl -X DELETE http://localhost:${SERVER_PORT:-8080}/api/v1/reactions/log-reaction
 
 # Re-create it subscribed to both queries
-curl -X POST http://localhost:8080/api/v1/reactions \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
   -H "Content-Type: application/json" \
   -d '{
     "kind": "log",
@@ -530,7 +538,7 @@ Drasi maintains state, so you can run aggregations that update automatically as 
 Create a query that counts how many times each message has been sent:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/queries \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "message-counts",
@@ -546,9 +554,9 @@ curl -X POST http://localhost:8080/api/v1/queries \
 Delete and re-create the Log Reaction to subscribe to all three queries:
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/reactions/log-reaction
+curl -X DELETE http://localhost:${SERVER_PORT:-8080}/api/v1/reactions/log-reaction
 
-curl -X POST http://localhost:8080/api/v1/reactions \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
   -H "Content-Type: application/json" \
   -d '{
     "kind": "log",
@@ -595,7 +603,7 @@ Drasi can detect patterns over time, including the *absence* of activity.
 Create a query that identifies senders who haven't sent a message in the last 20 seconds:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/queries \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "inactive-senders",
@@ -611,7 +619,7 @@ curl -X POST http://localhost:8080/api/v1/queries \
 So far you've used the Log Reaction to view changes in the console. Now add an SSE (Server-Sent Events) Reaction to also view query result set changes in a browser:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/reactions \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
   -H "Content-Type: application/json" \
   -d '{
     "kind": "sse",
@@ -619,12 +627,12 @@ curl -X POST http://localhost:8080/api/v1/reactions \
     "autoStart": true,
     "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders"],
     "host": "0.0.0.0",
-    "port": 8081,
+    "port": '"${SSE_PORT:-8081}"',
     "ssePath": "/events"
   }'
 ```
 
-Open <a href="http://localhost:8081" target="_blank">http://localhost:8081</a> in your browser. You'll see query result set changes appearing as JSON in real time.
+Open <a href="http://localhost:8081" target="_blank">http://localhost:&lt;SSE_PORT&gt;</a> in your browser (port `8081` for Download Binary / Build from Source, or `8181` for Dev Container / Codespace). You'll see query result set changes appearing as JSON in real time.
 
 ### Wait and Observe
 
@@ -659,7 +667,7 @@ So far you've used a single PostgreSQL source. Now you'll add an HTTP source and
 Create the HTTP source via the REST API:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/sources \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/sources \
   -H "Content-Type: application/json" \
   -d '{
     "kind": "http",
@@ -681,7 +689,7 @@ The `bootstrapProvider` loads initial location data from a JSON file on startup.
 Create a query that joins messages with user locations:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/queries \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "messages-with-location",
@@ -706,9 +714,9 @@ The `joins` section creates a virtual relationship `FROM_USER` that connects `Me
 Update both the Log and SSE Reactions to subscribe to the new query:
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/reactions/log-reaction
+curl -X DELETE http://localhost:${SERVER_PORT:-8080}/api/v1/reactions/log-reaction
 
-curl -X POST http://localhost:8080/api/v1/reactions \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
   -H "Content-Type: application/json" \
   -d '{
     "kind": "log",
@@ -717,9 +725,9 @@ curl -X POST http://localhost:8080/api/v1/reactions \
     "autoStart": true
   }'
 
-curl -X DELETE http://localhost:8080/api/v1/reactions/browser-stream
+curl -X DELETE http://localhost:${SERVER_PORT:-8080}/api/v1/reactions/browser-stream
 
-curl -X POST http://localhost:8080/api/v1/reactions \
+curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
   -H "Content-Type: application/json" \
   -d '{
     "kind": "sse",
@@ -727,7 +735,7 @@ curl -X POST http://localhost:8080/api/v1/reactions \
     "autoStart": true,
     "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders", "messages-with-location"],
     "host": "0.0.0.0",
-    "port": 8081,
+    "port": '"${SSE_PORT:-8081}"',
     "ssePath": "/events"
   }'
 ```
