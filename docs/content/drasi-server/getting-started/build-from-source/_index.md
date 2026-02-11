@@ -62,11 +62,11 @@ git clone https://github.com/drasi-project/drasi-server.git
 cd drasi-server
 cargo install --path . --root . --locked
 ```
-This takes several minutes on first build.
+The `cargo install` command takes several minutes to complete the first time you run it.
 
-The `--root .` flag tells Cargo to install the Drasi Server binary to `./bin/drasi-server` in the current directory, which is where the tutorial assumes it will be.
+The `--root .` flag tells Cargo to install the Drasi Server binary to `./bin/drasi-server` in the current directory, which is where the rest of the tutorial assumes it will be.
 
-## Step 2: Verify the Build
+### Verify the Build
 
 Verify the binary works:
 
@@ -78,6 +78,18 @@ You should see output showing the version number, for example:
 
 ```
 drasi-server 0.1.0
+```
+
+---
+
+## Step 2: Set Environment Variables
+
+The tutorial uses environment variables for various port numbers so the same commands work across all setup environments. Run the following to set the required environment variables:
+
+```bash
+export SERVER_PORT=8080
+export SSE_PORT=8081
+export POSTGRES_HOST_PORT=5432
 ```
 
 ---
