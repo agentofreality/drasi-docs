@@ -166,7 +166,7 @@ The `init` command walks you through an interactive wizard that will assist you 
 From the tutorial root folder, run the following command:
 
 ```bash
-./bin/drasi-server init --output my-config.yaml
+./bin/drasi-server init --output getting-started.yaml
 ```
 
 Here's what to enter at each prompt:
@@ -272,18 +272,18 @@ Configuring Log Reaction
 > Reaction ID: log-reaction
 
 
-Configuration saved to: my-config.yaml
+Configuration saved to: getting-started.yaml
 
 Next steps:
-  1. Review and edit my-config.yaml as needed
-  2. Run: drasi-server --config my-config.yaml
+  1. Review and edit getting-started.yaml as needed
+  2. Run: drasi-server --config getting-started.yaml
 ```
 
 ### Update the Default Continuous Query
 
 The wizard created a default Continuous Query that selects all nodes from the `my-postgres` Source. Now you'll edit the Continuous Query to select only `message` nodes and to rename some of their fields for clarity.
 
-Open `my-config.yaml` in your preferred editor and find the `queries` section. The wizard's default Continuous Query looks like this:
+Open `getting-started.yaml` in your preferred editor and find the `queries` section. The wizard's default Continuous Query looks like this:
 
 ```yaml
 queries:
@@ -333,14 +333,14 @@ reactions:
 ### Run Drasi Server
 
 ```bash
-./bin/drasi-server --config my-config.yaml
+./bin/drasi-server --config getting-started.yaml
 ```
 
 You'll see detailed startup logs as Drasi Server initializes all configured Sources, Continuous Queries, and Reactions. There's a lot of output, so look for these key lines:
 
 ```
 Starting Drasi Server
-  Config file: my-config.yaml
+  Config file: getting-started.yaml
   API Port: 8080
   Log level: info
 ```
@@ -390,7 +390,55 @@ Watch the Drasi Server console — notification of a change to the `all-messages
 [log-reaction]   [ADD] {"n":"Element(Node { metadata: ElementMetadata { reference: ElementReference { source_id: \"my-postgres\", element_id: \"Message:5\" }, labels: [\"Message\"], effective_from: 1770778392526 }, properties: ElementPropertyMap { values: {\"CreatedAt\": String(\"2026-02-11 02:53:12.522474\"), \"From\": String(\"You\"), \"Message\": String(\"My first message!\"), \"MessageId\": Integer(5)} } })"}
 ```
 
-**✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. Changes in the database flow through Drasi Server and notification of data changes appear in the console instantly.
+### View Continuous Query Results
+
+Drasi Server provides a [REST API](../reference/rest-api/) through which you can view the current result set of any Continuous Query. Click the following URL to view the current result set of the `all-messages` Continuous Query in your browser:
+
+<a href="http://localhost:8080/api/v1/queries/all-messages/results" target="_blank">http://localhost:8080/api/v1/queries/all-messages/results</a>
+
+Or use `curl` from your second terminal:
+
+```bash
+curl -s http://localhost:8080/api/v1/queries/all-messages/results
+```
+
+Either way, you should see the current result set for the `all-messages` query, including the message you just inserted:
+
+```json
+[
+    {
+        "From": "Buzz Lightyear",
+        "Message": "To infinity and beyond!",
+        "MessageId": "1"
+    },
+    {
+        "From": "Brian Kernighan",
+        "Message": "Hello World",
+        "MessageId": "2"
+    },
+    {
+        "From": "Antoninus",
+        "Message": "I am Spartacus",
+        "MessageId": "3"
+    },
+    {
+        "From": "David",
+        "Message": "I am Spartacus",
+        "MessageId": "4"
+    },
+    {
+        "From": "You",
+        "Message": "My first message!",
+        "MessageId": "5"
+    }
+]
+```
+
+> **Tip:** The Drasi Server REST API also provides a Swagger UI at **http://localhost:8080/api/v1/docs/** where you can explore all available endpoints interactively.
+
+<div style="margin-top: 1.5rem;"></div>
+
+**✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. Changes in the database flow through Drasi Server and notification of data changes appear in the console instantly. And you can view the current state of the Continuous Query's result set at any time through the Drasi Server REST API.
 
 ---
 
@@ -400,7 +448,9 @@ Now you'll edit your configuration to add a query that only includes specific da
 
 ### Edit Your Config
 
-Open `my-config.yaml` in your editor and add a second query. Find the `queries:` section and add:
+Stop the running Drasi Server (`Ctrl+C`). 
+
+Open `getting-started.yaml` in your editor and add a second query. Find the `queries:` section and add:
 
 ```yaml
 queries:
@@ -419,7 +469,7 @@ queries:
 
 Notice that the new `hello-world-senders` Continuous Query defines the same `my-postgres` Source used by the original `all-messages` Continuous Query meaning both Continuous Queries share the same Source. Also the `hello-world-senders` Continuous Query has the setting `queryLanguage: Cypher`; Drasi Server supports Continuous Queries written in both GQL and openCypher.
 
-Then update the `reactions:` section to configure `log-reaction` to subscribe to the new `hello-world-senders` query:
+Then update the `reactions:` section to configure `log-reaction` to also subscribe to the new `hello-world-senders` query:
 
 ```yaml
 reactions:
@@ -427,26 +477,40 @@ reactions:
     id: log-reaction
     queries:
       - all-messages
-      - hello-world-senders  # Add the new query
+      - hello-world-senders  # Add the ID of the new query
     autoStart: true
 ```
 
-### Validate Your Changes
+### Validate Your Drasi Server Config 
 
-Before running, validate the configuration to catch any errors:
+Drasi Server provides a `validate` command that checks your configuration for errors before you run it. This is especially helpful as you add more components to your config file. 
+
+Validate your configuration file with the following command:
 
 ```bash
-./bin/drasi-server validate --config my-config.yaml
+./bin/drasi-server validate --config getting-started.yaml
 ```
 
-If there are errors (typos, invalid syntax), you'll see helpful messages. Fix them before proceeding.
+If there are no errors, you will see:
 
-### Restart and Observe
+```text
+Validating configuration: getting-started.yaml
 
-Stop the running server (`Ctrl+C`) and restart:
+[OK] Configuration file is valid
+
+Summary:
+  Instances: 1
+  Sources: 1
+  Queries: 2
+  Reactions: 1
+```
+
+### Test the hello-world-senders Query
+
+Start Drasi Server with your updated configuration:
 
 ```bash
-./bin/drasi-server --config my-config.yaml
+./bin/drasi-server --config getting-started.yaml
 ```
 
 Now you have two queries running. The new `hello-world-senders` query only shows Brian Kernighan (the one who sent "Hello World").
@@ -522,8 +586,8 @@ reactions:
 ### Validate and Run
 
 ```bash
-./bin/drasi-server validate --config my-config.yaml
-./bin/drasi-server --config my-config.yaml
+./bin/drasi-server validate --config getting-started.yaml
+./bin/drasi-server --config getting-started.yaml
 ```
 
 You'll see the aggregated counts in the initial output:
@@ -595,8 +659,8 @@ reactions:
 ### Validate and Run
 
 ```bash
-./bin/drasi-server validate --config my-config.yaml
-./bin/drasi-server --config my-config.yaml
+./bin/drasi-server validate --config getting-started.yaml
+./bin/drasi-server --config getting-started.yaml
 ```
 
 ### Wait and Observe
@@ -648,8 +712,8 @@ reactions:
 ### Validate and Run
 
 ```bash
-./bin/drasi-server validate --config my-config.yaml
-./bin/drasi-server --config my-config.yaml
+./bin/drasi-server validate --config getting-started.yaml
+./bin/drasi-server --config getting-started.yaml
 ```
 
 ### View in Browser
@@ -686,7 +750,7 @@ So far you've used a single PostgreSQL source. Now you'll add an HTTP source and
 
 ### Add an HTTP Source
 
-Edit `my-config.yaml` and add a second source:
+Edit `getting-started.yaml` and add a second source:
 
 ```yaml
 sources:
@@ -751,8 +815,8 @@ reactions:
 ### Validate and Run
 
 ```bash
-./bin/drasi-server validate --config my-config.yaml
-./bin/drasi-server --config my-config.yaml
+./bin/drasi-server validate --config getting-started.yaml
+./bin/drasi-server --config getting-started.yaml
 ```
 
 On startup, the bootstrap loads location data for 4 users. You'll see the joined output:

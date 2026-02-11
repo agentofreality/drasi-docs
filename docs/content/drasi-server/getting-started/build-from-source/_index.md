@@ -13,6 +13,7 @@ Build Drasi Server from source. This approach is ideal for contributors or if yo
 - **Git** — [Install Git](https://git-scm.com/downloads)
 - **Docker** — Required for the tutorial database ([Install Docker Desktop](https://www.docker.com/products/docker-desktop/))
 - **Rust 1.88+** — For building Drasi Server ([Install via rustup](https://rustup.rs/))
+- **curl** — Used in later tutorial steps ([Install curl](https://curl.se/download.html))
 
 ### Verify Git is Installed
 

@@ -12,7 +12,7 @@ This is the fastest way to get started with Drasi Server. Download a prebuilt bi
 
 - **Git** — [Install Git](https://git-scm.com/downloads)
 - **Docker** — Required for the tutorial database ([Install Docker Desktop](https://www.docker.com/products/docker-desktop/))
-- **curl** and **tar** — For downloading and extracting the binary
+- **curl** and **tar** — For downloading and extracting the binary ([Install curl](https://curl.se/download.html))
 
 ### Verify Docker is Running
 
