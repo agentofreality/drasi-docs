@@ -374,7 +374,7 @@ Shortly after, the bootstrap process loads the initial data from the `Messages` 
 
 > **Tip:** You can customize the log output format using templates. See [Configure Log Reaction](../how-to-guides/configuration/configure-reactions/configure-log-reaction/) for details.
 
-### Test Real-Time Changes
+### Test the all-messages Continuous Query
 
 Open a **new terminal** and run the following command to insert a record into the `message` table:
 
@@ -444,78 +444,51 @@ Either way, you should see the current result set for the `all-messages` query, 
 
 ## Step 4: Add a Query with Criteria {#phase-2}
 
-Now you'll edit your configuration to add a query that only includes specific data in its result set.
+Now you'll dynamically add a second Continuous Query and update the Log Reaction using the Drasi Server [REST API](../reference/rest-api/) — without stopping the server.
 
-### Edit Your Config
+### Add the Query via the REST API
 
-Stop the running Drasi Server (`Ctrl+C`). 
-
-Open `getting-started.yaml` in your editor and add a second query. Find the `queries:` section and add:
-
-```yaml
-queries:
-  # ... your existing query ...
-  
-  - id: hello-world-senders
-    autoStart: true
-    sources:
-      - sourceId: my-postgres
-    query: |
-      MATCH (m:Message)
-      WHERE m.Message = 'Hello World'
-      RETURN m.MessageId AS Id, m.From AS Sender
-    queryLanguage: Cypher
-```
-
-Notice that the new `hello-world-senders` Continuous Query defines the same `my-postgres` Source used by the original `all-messages` Continuous Query meaning both Continuous Queries share the same Source. Also the `hello-world-senders` Continuous Query has the setting `queryLanguage: Cypher`; Drasi Server supports Continuous Queries written in both GQL and openCypher.
-
-Then update the `reactions:` section to configure `log-reaction` to also subscribe to the new `hello-world-senders` query:
-
-```yaml
-reactions:
-  - kind: log
-    id: log-reaction
-    queries:
-      - all-messages
-      - hello-world-senders  # Add the ID of the new query
-    autoStart: true
-```
-
-### Validate Your Drasi Server Config 
-
-Drasi Server provides a `validate` command that checks your configuration for errors before you run it. This is especially helpful as you add more components to your config file. 
-
-Validate your configuration file with the following command:
+In your second terminal, create a new Continuous Query that only includes messages containing "Hello World":
 
 ```bash
-./bin/drasi-server validate --config getting-started.yaml
+curl -X POST http://localhost:8080/api/v1/queries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "hello-world-senders",
+    "autoStart": true,
+    "sources": [{"sourceId": "my-postgres"}],
+    "query": "MATCH (m:Message) WHERE m.Message = '\''Hello World'\'' RETURN m.MessageId AS Id, m.From AS Sender",
+    "queryLanguage": "Cypher"
+  }'
 ```
 
-If there are no errors, you will see:
+Notice that the new `hello-world-senders` Continuous Query references the same `my-postgres` Source used by the original `all-messages` Continuous Query — multiple Continuous Queries can share the same Source. Also the `hello-world-senders` Continuous Query uses `queryLanguage: Cypher` — Drasi Server supports Continuous Queries written in both GQL and openCypher.
 
-```text
-Validating configuration: getting-started.yaml
+### Update the Log Reaction
 
-[OK] Configuration file is valid
+To subscribe the Log Reaction to the new query, you need to delete and re-create it with both queries listed.
 
-Summary:
-  Instances: 1
-  Sources: 1
-  Queries: 2
-  Reactions: 1
-```
-
-### Test the hello-world-senders Query
-
-Start Drasi Server with your updated configuration:
+> **Note:** Drasi Server does not currently support editing existing Sources, Continuous Queries, or Reactions through the REST API. To modify a component, you must delete it and re-add it with the updated configuration.
 
 ```bash
-./bin/drasi-server --config getting-started.yaml
+# Delete the existing log reaction
+curl -X DELETE http://localhost:8080/api/v1/reactions/log-reaction
+
+# Re-create it subscribed to both queries
+curl -X POST http://localhost:8080/api/v1/reactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "log",
+    "id": "log-reaction",
+    "queries": ["all-messages", "hello-world-senders"],
+    "autoStart": true
+  }'
 ```
 
-Now you have two queries running. The new `hello-world-senders` query only shows Brian Kernighan (the one who sent "Hello World").
+You should see in the Drasi Server console that the `log-reaction` is now subscribed to both queries.
 
-### Test the Query Criteria
+### Test the hello-world-senders Continuous Query
+
 
 ```bash
 # This WILL appear in hello-world-senders (meets the WHERE criteria)
@@ -552,45 +525,40 @@ Notice that `hello-world-senders` didn't produce any output — the new message 
 
 Drasi maintains state, so you can run aggregations that update automatically as data changes.
 
-### Edit Your Config
+### Add the Query via the REST API
 
-Add a query that counts how many times each message has been sent:
-
-```yaml
-queries:
-  # ... existing queries ...
-  
-  - id: message-counts
-    autoStart: true
-    sources:
-      - sourceId: my-postgres
-    query: |
-      MATCH (m:Message)
-      RETURN m.Message AS MessageText, count(m) AS Count
-    queryLanguage: Cypher
-```
-
-Update the `reactions:` section to include the new query:
-
-```yaml
-reactions:
-  - kind: log
-    id: log-reaction
-    queries:
-      - all-messages
-      - hello-world-senders
-      - message-counts  # Add the new query
-    autoStart: true
-```
-
-### Validate and Run
+Create a query that counts how many times each message has been sent:
 
 ```bash
-./bin/drasi-server validate --config getting-started.yaml
-./bin/drasi-server --config getting-started.yaml
+curl -X POST http://localhost:8080/api/v1/queries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "message-counts",
+    "autoStart": true,
+    "sources": [{"sourceId": "my-postgres"}],
+    "query": "MATCH (m:Message) RETURN m.Message AS MessageText, count(m) AS Count",
+    "queryLanguage": "Cypher"
+  }'
 ```
 
-You'll see the aggregated counts in the initial output:
+### Update the Log Reaction
+
+Delete and re-create the Log Reaction to subscribe to all three queries:
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/reactions/log-reaction
+
+curl -X POST http://localhost:8080/api/v1/reactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "log",
+    "id": "log-reaction",
+    "queries": ["all-messages", "hello-world-senders", "message-counts"],
+    "autoStart": true
+  }'
+```
+
+You'll see the aggregated counts in the console output:
 ```
 [message-counts] + {"MessageText":"To infinity and beyond!","Count":1}
 [message-counts] + {"MessageText":"Hello World","Count":2}
@@ -622,46 +590,41 @@ The `-` shows the old value being removed, and `+` shows the new value. The coun
 
 Drasi can detect patterns over time, including the *absence* of activity.
 
-### Edit Your Config
+### Add the Query via the REST API
 
-Add a query that identifies senders who haven't sent a message in the last 20 seconds:
-
-```yaml
-queries:
-  # ... existing queries ...
-  
-  - id: inactive-senders
-    autoStart: true
-    sources:
-      - sourceId: my-postgres
-    query: |
-      MATCH (m:Message)
-      WITH m.From AS Sender, max(m.CreatedAt) AS LastSeen
-      WHERE LastSeen < datetime() - duration('PT20S')
-      RETURN Sender, LastSeen
-    queryLanguage: Cypher
-```
-
-Update the `reactions:` section to include the new query:
-
-```yaml
-reactions:
-  - kind: log
-    id: log-reaction
-    queries:
-      - all-messages
-      - hello-world-senders
-      - message-counts
-      - inactive-senders  # Add the new query
-    autoStart: true
-```
-
-### Validate and Run
+Create a query that identifies senders who haven't sent a message in the last 20 seconds:
 
 ```bash
-./bin/drasi-server validate --config getting-started.yaml
-./bin/drasi-server --config getting-started.yaml
+curl -X POST http://localhost:8080/api/v1/queries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "inactive-senders",
+    "autoStart": true,
+    "sources": [{"sourceId": "my-postgres"}],
+    "query": "MATCH (m:Message) WITH m.From AS Sender, max(m.CreatedAt) AS LastSeen WHERE LastSeen < datetime() - duration('\''PT20S'\'') RETURN Sender, LastSeen",
+    "queryLanguage": "Cypher"
+  }'
 ```
+
+### Add a Browser Reaction
+
+So far you've used the Log Reaction to view changes in the console. Now add an SSE (Server-Sent Events) Reaction to also view query result set changes in a browser:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/reactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "sse",
+    "id": "browser-stream",
+    "autoStart": true,
+    "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders"],
+    "host": "0.0.0.0",
+    "port": 8081,
+    "ssePath": "/events"
+  }'
+```
+
+Open <a href="http://localhost:8081" target="_blank">http://localhost:8081</a> in your browser. You'll see query result set changes appearing as JSON in real time.
 
 ### Wait and Observe
 
@@ -681,68 +644,11 @@ docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -
 
 Watch Alice disappear from the inactive list (she just sent a message). After 20 more seconds of inactivity, she'll reappear.
 
-**✅ Checkpoint**: You understand that Drasi can detect the *absence* of activity over time — a powerful capability for monitoring and alerting.
+**✅ Checkpoint**: You understand that Drasi can detect the *absence* of activity over time — a powerful capability for monitoring and alerting. You also have two Reactions (Log and SSE) distributing notifications from the same queries to different destinations.
 
 ---
 
-## Step 7: Add a Browser Reaction {#phase-5}
-
-So far you've used the Log reaction. Now add an SSE (Server-Sent Events) reaction to view results in a browser.
-
-### Edit Your Config
-
-Add an SSE reaction:
-
-```yaml
-reactions:
-  # ... existing log reaction ...
-  
-  - kind: sse
-    id: browser-stream
-    autoStart: true
-    queries:
-      - hello-world-senders
-      - message-counts
-      - inactive-senders
-    host: 0.0.0.0
-    port: 8081
-    ssePath: /events
-```
-
-### Validate and Run
-
-```bash
-./bin/drasi-server validate --config getting-started.yaml
-./bin/drasi-server --config getting-started.yaml
-```
-
-### View in Browser
-
-Open **http://localhost:8081** in your browser. You'll see query result set changes appearing as JSON in real time.
-
-For a friendlier view, you can use the SSE viewer from the examples:
-
-```bash
-cd examples/getting-started
-python3 -m http.server 8000 --directory viewer &
-```
-
-Then open **http://localhost:8000** to see a dashboard with all three queries.
-
-### Test Live Updates
-
-Insert more messages and watch the browser update in real-time — no page refresh needed!
-
-```bash
-docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Charlie', 'Hello World');"
-```
-
-**✅ Checkpoint**: You understand that queries can feed multiple reactions, and reactions can output to different destinations (console, browser, webhooks, etc.).
-
----
-
-## Step 8: Add Cross-Source Joins {#phase-6}
+## Step 7: Add Cross-Source Joins {#phase-5}
 
 So far you've used a single PostgreSQL source. Now you'll add an HTTP source and join data across both sources.
 
@@ -750,76 +656,83 @@ So far you've used a single PostgreSQL source. Now you'll add an HTTP source and
 
 ### Add an HTTP Source
 
-Edit `getting-started.yaml` and add a second source:
+Create the HTTP source via the REST API:
 
-```yaml
-sources:
-  # ... existing postgres source ...
-  
-  - kind: http
-    id: location-tracker
-    autoStart: true
-    host: 0.0.0.0
-    port: 9000
-    bootstrapProvider:
-      kind: script
-      path: examples/getting-started/locations.json
+```bash
+curl -X POST http://localhost:8080/api/v1/sources \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "http",
+    "id": "location-tracker",
+    "autoStart": true,
+    "host": "0.0.0.0",
+    "port": 9000,
+    "bootstrapProvider": {
+      "kind": "script",
+      "path": "examples/getting-started/locations.json"
+    }
+  }'
 ```
 
 The `bootstrapProvider` loads initial location data from a JSON file on startup.
 
 ### Add a Join Query
 
-Add a query that joins messages with user locations:
+Create a query that joins messages with user locations:
 
-```yaml
-queries:
-  # ... existing queries ...
-  
-  - id: messages-with-location
-    autoStart: true
-    sources:
-      - sourceId: my-postgres
-      - sourceId: location-tracker
-    query: |
-      MATCH (m:Message)-[:FROM_USER]->(u:UserLocation)
-      RETURN m.MessageId AS Id, m.Message AS Message, 
-             m.From AS Sender, u.location AS Location, u.status AS Status
-    queryLanguage: Cypher
-    joins:
-      - id: FROM_USER
-        keys:
-          - label: Message
-            property: From
-          - label: UserLocation
-            property: name
+```bash
+curl -X POST http://localhost:8080/api/v1/queries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "messages-with-location",
+    "autoStart": true,
+    "sources": [{"sourceId": "my-postgres"}, {"sourceId": "location-tracker"}],
+    "query": "MATCH (m:Message)-[:FROM_USER]->(u:UserLocation) RETURN m.MessageId AS Id, m.Message AS Message, m.From AS Sender, u.location AS Location, u.status AS Status",
+    "queryLanguage": "Cypher",
+    "joins": [{
+      "id": "FROM_USER",
+      "keys": [
+        {"label": "Message", "property": "From"},
+        {"label": "UserLocation", "property": "name"}
+      ]
+    }]
+  }'
 ```
 
 The `joins` section creates a virtual relationship `FROM_USER` that connects `Message.From` to `UserLocation.name`.
 
-Update the `log-reaction` to include the new query:
+### Update the Reactions
 
-```yaml
-reactions:
-  - kind: log
-    id: log-reaction
-    queries:
-      - all-messages
-      - hello-world-senders
-      - message-counts
-      - inactive-senders
-      - messages-with-location  # Add the new query
-    autoStart: true
-```
-
-### Validate and Run
+Update both the Log and SSE Reactions to subscribe to the new query:
 
 ```bash
-./bin/drasi-server validate --config getting-started.yaml
-./bin/drasi-server --config getting-started.yaml
+curl -X DELETE http://localhost:8080/api/v1/reactions/log-reaction
+
+curl -X POST http://localhost:8080/api/v1/reactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "log",
+    "id": "log-reaction",
+    "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders", "messages-with-location"],
+    "autoStart": true
+  }'
+
+curl -X DELETE http://localhost:8080/api/v1/reactions/browser-stream
+
+curl -X POST http://localhost:8080/api/v1/reactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "sse",
+    "id": "browser-stream",
+    "autoStart": true,
+    "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders", "messages-with-location"],
+    "host": "0.0.0.0",
+    "port": 8081,
+    "ssePath": "/events"
+  }'
 ```
 
-On startup, the bootstrap loads location data for 4 users. You'll see the joined output:
+The bootstrap loads location data for 4 users. You'll see the joined output:
 
 ```
 [messages-with-location] + {"Id":2,"Message":"Hello World","Sender":"Brian Kernighan","Location":"Building A, Floor 3","Status":"online"}
@@ -876,8 +789,8 @@ You built a complete change-driven solution from scratch:
 | **Queries** | Wrote 5 Continuous Queries: simple change detection, criteria-based selection, aggregation, time-based detection, and cross-source joins |
 | **Reactions** | Configured Log and SSE reactions to distribute notifications of query result changes to console and browser |
 | **Joins** | Connected data across sources using virtual relationships |
-| **Configuration** | Used `drasi-server init` to scaffold, then manually edited to add components |
-| **Validation** | Used `drasi-server validate` to catch errors before running |
+| **Configuration** | Used `drasi-server init` to scaffold an initial configuration, then dynamically added components via the REST API |
+| **REST API** | Used the REST API to create, delete, and query Sources, Continuous Queries, and Reactions while the server is running |
 
 The core Drasi pattern: **Sources connect to data → Continuous Queries detect changes → Reactions distribute notifications of result set changes**.
 
