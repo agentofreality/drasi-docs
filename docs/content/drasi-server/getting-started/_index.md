@@ -498,11 +498,31 @@ All data source changes that alter the result set of a Continuous Query generate
 
 ## Step 4: Add a Query with Criteria {#phase-2}
 
-The `all-messages` Continuous Query is very simple and includes all messages written to the Message table. Now you'll add a second Continuous Query that answers the question "Who sent messages containing 'Hello World'?". You will add this new `hello-world-senders` Continuous Query using the Drasi Server REST API so you learn how to extend your configuration without restarting Drasi Server. 
+The `all-messages` Continuous Query is very simple and includes all messages written to the Message table. Now you'll add a second Continuous Query that answers the question "Who sent messages containing 'Hello World'?". You will add the new `hello-world-senders` Continuous Query using the Drasi Server REST API so you learn how to extend your configuration without restarting Drasi Server. 
+
+### The hello-world-senders Query
+
+Here's how the new query would look in a Drasi Server config file:
+
+```yaml
+- id: hello-world-senders
+  autoStart: true
+  sources:
+    - sourceId: my-postgres
+  query: |
+    MATCH (m:Message) 
+    WHERE m.Message = 'Hello World' 
+    RETURN m.MessageId AS Id, m.From AS Sender
+  queryLanguage: Cypher
+```
+
+The `MATCH` clause selects all `Message` nodes from the data source. The `WHERE` clause filters to only messages where the `Message` field equals `'Hello World'` — so changes to messages with different content won't appear in this query's result set. The `RETURN` clause renames the output fields to `Id` and `Sender`.
+
+Notice this query uses `queryLanguage: Cypher` instead of `GQL` — Drasi Server supports Continuous Queries written in both [GQL](../../reference/query-language/gql.md) and [openCypher](../../reference/query-language/cypher.md).
 
 ### Add the Query via the REST API
 
-In your second terminal, use the followign `curl` command to create a new Continuous Query that only includes messages containing "Hello World":
+In your second terminal, use the following `curl` command to create the `hello-world-senders` Continuous Query:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/queries \
@@ -518,11 +538,11 @@ curl -X POST http://localhost:8080/api/v1/queries \
 
 > **Note:** This command is also included in the `examples/getting-started/requests.http` file for use with the VS Code REST Client extension.
 
-Notice that the new `hello-world-senders` Continuous Query references the same `my-postgres` Source used by the original `all-messages` Continuous Query — multiple Continuous Queries can share the same Source. Also the `hello-world-senders` Continuous Query uses `queryLanguage: Cypher` — Drasi Server supports Continuous Queries written in both [GQL](../../reference/query-language/gql.md) and [openCypher](../../reference/query-language/cypher.md).
+The new `hello-world-senders` Continuous Query references the same `my-postgres` Source used by the original `all-messages` Continuous Query — multiple Continuous Queries can share the same Source.
 
 ### Update the Log Reaction
 
-Without a Reaction subscribed to the `hello-world-senders` Continuous Query, Drai Server will not send notifications when the query results change.
+Without a Reaction subscribed to the `hello-world-senders` Continuous Query, Drasi Server will not send notifications when the query results change.
 
 To subscribe the Log Reaction to the new query, you need to delete and re-create it with both queries listed.
 
