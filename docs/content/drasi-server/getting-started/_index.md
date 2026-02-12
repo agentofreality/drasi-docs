@@ -347,7 +347,7 @@ You'll see detailed startup logs as Drasi Server initializes all configured Sour
 ```
 Starting Drasi Server
   Config file: getting-started.yaml
-  API Port: ${SERVER_PORT:-8080}
+  API Port: 8080
   Log level: info
 ```
 
@@ -360,106 +360,154 @@ This shows the name of the config file being used, the log level that controls t
 This confirms that the `log-reaction` Reaction is subscribed to Query Result Change notifications from the `all-messages` Continuous Query.
 
 ```
-Drasi Server started successfully with API on port ${SERVER_PORT:-8080}
+Drasi Server started successfully with API on port 8080
 ```
 
-Shortly after, the bootstrap process loads the initial data from the `Messages` table and the Log Reaction outputs the 4 messages representing additions to the `all-messages` query's result set:
+Shortly after, the bootstrap process loads the initial data from the `Messages` table and passes it to the `all-messages` query for processing. Look for output like this in the console:
+
+```text
+[BOOTSTRAP] Query 'all-messages' completed bootstrap from source 'my-postgres' (4 events)
+[BOOTSTRAP] Query 'all-messages' all sources completed bootstrap
+[BOOTSTRAP] Emitted bootstrapCompleted signal for query 'all-messages'
 
 ```
-[log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [ADD] {"From":"Buzz Lightyear","Message":"To infinity and beyond!","MessageId":"1"}
-[log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [ADD] {"From":"Brian Kernighan","Message":"Hello World","MessageId":"2"}
-[log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [ADD] {"From":"Antoninus","Message":"I am Spartacus","MessageId":"3"}
-[log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [ADD] {"From":"David","Message":"I am Spartacus","MessageId":"4"}
-```
-
-> **Note:** The messages may appear in a different order and may be interleaved with other log lines. This is normal — bootstrapped data is processed asynchronously.
-
-> **Tip:** You can customize the log output format using templates. See [Configure Log Reaction](../how-to-guides/configuration/configure-reactions/configure-log-reaction/) for details.
 
 ### Test the all-messages Continuous Query
 
-Open a **new terminal** and run the following command to insert a record into the `message` table:
+Open a **new terminal** and run the following command to insert a record into the `Message` table:
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('You', 'My first message!');"
 ```
 
-Watch the Drasi Server console — notification of a change to the `all-messages` Continuous Query result appears instantly thanks to the Log Reaction!
+Watch the Drasi Server console — a notification of an addition to the `all-messages` query result appears instantly output by the Log Reaction:
 
 ```text
 [log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [ADD] {"n":"Element(Node { metadata: ElementMetadata { reference: ElementReference { source_id: \"my-postgres\", element_id: \"Message:5\" }, labels: [\"Message\"], effective_from: 1770778392526 }, properties: ElementPropertyMap { values: {\"CreatedAt\": String(\"2026-02-11 02:53:12.522474\"), \"From\": String(\"You\"), \"Message\": String(\"My first message!\"), \"MessageId\": Integer(5)} } })"}
+[log-reaction]   [ADD] {"From":"You","Message":"My first message!","MessageId":"5"}
 ```
+
+Now, run the following command to update the message we just inserted and change its text:
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "UPDATE \"Message\" SET \"Message\" = 'My first UPDATED message!' WHERE \"MessageId\" = 5;"
+```
+
+The notification output by the Log Reaction shows the the item from the query result before and after the update:
+
+```text
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [UPDATE] {"From":"You","Message":"My first message!","MessageId":"5"} -> {"From":"You","Message":"My first UPDATED message!","MessageId":"5"}
+```
+
+Finally, delete the message with this command:
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "DELETE FROM \"Message\" WHERE \"MessageId\" = 5;"
+```
+
+The console shows the message being deleted from the query's result set:
+
+```text
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [DELETE] {"From":"You","Message":"My first UPDATED message!","MessageId":"5"}
+```
+> **Tip:** You can customize the Log Reaction output format using templates. See [Configure Log Reaction](../how-to-guides/configuration/configure-reactions/configure-log-reaction/) for details.
+
+{{< alert title="Key Concept" color="info" >}}
+All data source changes that alter the result set of a Continuous Query generate notifications that are sent to subscribed Reactions for handling.
+{{< /alert >}}
+
+
 
 ### View Continuous Query Results
 
-Drasi Server provides a [REST API](../reference/rest-api/) through which you can view the current result set of any Continuous Query. Open the following URL in your browser to view the current result set of the `all-messages` Continuous Query:
+Drasi Server provides a [REST API](../reference/rest-api/) through which you can view the current result set of any Continuous Query. Choose your preferred method to view the `all-messages` query results:
 
-<a href="http://localhost:8080/api/v1/queries/all-messages/results" target="_blank">http://localhost:&lt;SERVER_PORT&gt;/api/v1/queries/all-messages/results</a>
+{{< tabpane text=true >}}
+{{% tab header="Browser" %}}
 
-> **Note:** Replace `<SERVER_PORT>` with `8080` (Download Binary / Build from Source) or `8180` (Dev Container / Codespace).
+Click to open the following URL in a browser:
 
-Or use `curl` from your second terminal:
+<a href="http://localhost:8080/api/v1/queries/all-messages/results" target="_blank">http://localhost:8080/api/v1/queries/all-messages/results</a>
+
+{{% /tab %}}
+{{% tab header="curl" %}}
+
+Run the following curl command in the terminal:
 
 ```bash
-curl -s http://localhost:${SERVER_PORT:-8080}/api/v1/queries/all-messages/results
+curl -s http://localhost:8080/api/v1/queries/all-messages/results
 ```
 
-Either way, you should see the current result set for the `all-messages` query, including the message you just inserted:
+{{% /tab %}}
+{{% tab header="VS Code REST Client" %}}
+
+If you are using VS Code, you can call the REST API using the <a href="https://marketplace.visualstudio.com/items?itemName=humao.rest-client" target="_blank">REST Client extension</a>
+
+
+The Drasi Server repo contains a file at `examples/getting-started/requests.http` that includes pre-written REST API requests for use with the Getting Started tutorial.
+
+{{% /tab %}}
+{{< /tabpane >}}
+
+You should see the current result set for the `all-messages` query, including the message you just inserted:
 
 ```json
-[
+{
+  "success": true,
+  "data": [
     {
-        "From": "Buzz Lightyear",
-        "Message": "To infinity and beyond!",
-        "MessageId": "1"
+      "From": "Buzz Lightyear",
+      "Message": "To infinity and beyond!",
+      "MessageId": "1"
     },
     {
-        "From": "Brian Kernighan",
-        "Message": "Hello World",
-        "MessageId": "2"
+      "From": "Brian Kernighan",
+      "Message": "Hello World",
+      "MessageId": "2"
     },
     {
-        "From": "Antoninus",
-        "Message": "I am Spartacus",
-        "MessageId": "3"
+      "From": "Antoninus",
+      "Message": "I am Spartacus",
+      "MessageId": "3"
     },
     {
-        "From": "David",
-        "Message": "I am Spartacus",
-        "MessageId": "4"
+      "From": "David",
+      "Message": "I am Spartacus",
+      "MessageId": "4"
     },
     {
-        "From": "You",
-        "Message": "My first message!",
-        "MessageId": "5"
+      "From": "You",
+      "Message": "My first message!",
+      "MessageId": "5"
     }
-]
+  ],
+  "error": null
+}
 ```
 
-> **Tip:** The Drasi Server REST API also provides a Swagger UI at **http://localhost:&lt;SERVER_PORT&gt;/api/v1/docs/** where you can explore all available endpoints interactively.
+> **Tip:** The Drasi Server REST API also provides a Swagger UI at **http://localhost:808/api/v1/docs/** where you can explore all available endpoints interactively.
 
 <div style="margin-top: 1.5rem;"></div>
 
-**✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. Changes in the database flow through Drasi Server and notification of data changes appear in the console instantly. And you can view the current state of the Continuous Query's result set at any time through the Drasi Server REST API.
+**✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. You've seen how changes in the database flow into Drasi Server and notification of changes to Continuous Query results are output by the Log Reaction in real time. You also know how to view the current result set of a Continuous Query through the REST API.
 
 ---
 
 ## Step 4: Add a Query with Criteria {#phase-2}
 
-Now you'll dynamically add a second Continuous Query and update the Log Reaction using the Drasi Server [REST API](../reference/rest-api/) — without stopping the server.
+The `all-messages` Continuous Query is very simple and includes all messages written to the Message table. Now you'll add a second Continuous Query that answers the question "Who sent messages containing 'Hello World'?". You will add this new `hello-world-senders` Continuous Query using the Drasi Server REST API so you learn how to extend your configuration without restarting Drasi Server. 
 
 ### Add the Query via the REST API
 
-In your second terminal, create a new Continuous Query that only includes messages containing "Hello World":
+In your second terminal, use the followign `curl` command to create a new Continuous Query that only includes messages containing "Hello World":
 
 ```bash
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
+curl -X POST http://localhost:8080/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "hello-world-senders",
@@ -470,9 +518,13 @@ curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   }'
 ```
 
-Notice that the new `hello-world-senders` Continuous Query references the same `my-postgres` Source used by the original `all-messages` Continuous Query — multiple Continuous Queries can share the same Source. Also the `hello-world-senders` Continuous Query uses `queryLanguage: Cypher` — Drasi Server supports Continuous Queries written in both GQL and openCypher.
+> **Note:** This command is also included in the `examples/getting-started/requests.http` file for use with the VS Code REST Client extension.
+
+Notice that the new `hello-world-senders` Continuous Query references the same `my-postgres` Source used by the original `all-messages` Continuous Query — multiple Continuous Queries can share the same Source. Also the `hello-world-senders` Continuous Query uses `queryLanguage: Cypher` — Drasi Server supports Continuous Queries written in both [GQL](../../reference/query-language/gql.md) and [openCypher](../../reference/query-language/cypher.md).
 
 ### Update the Log Reaction
+
+Without a Reaction subscribed to the `hello-world-senders` Continuous Query, Drai Server will not send notifications when the query results change.
 
 To subscribe the Log Reaction to the new query, you need to delete and re-create it with both queries listed.
 
