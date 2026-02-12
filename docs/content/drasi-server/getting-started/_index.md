@@ -565,6 +565,8 @@ curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
 
 You should see in the Drasi Server console that the `log-reaction` is now subscribed to both queries.
 
+Also, if you open the Drasi Server config file (getting-started.yaml), you'll see that the new query has been added to the `queries` section, and the `log-reaction` configuration has been updated to include both queries. Drasi Server automatically updates the config file when you make changes through the REST API, so the config file is always an up-to-date representation of your running Drasi Server configuration. You can stop Drasi Server from automatically updating the config file by setting `persistConfig` to `false` in the server settings section of the config file.
+
 ### Test the hello-world-senders Continuous Query
 
 
@@ -576,8 +578,10 @@ docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -
 
 Watch the console:
 ```
-[all-messages] + {"MessageId":6,"From":"Alice","Message":"Hello World"}
-[hello-world-senders] + {"Id":6,"Sender":"Alice"}
+[log-reaction] Query 'hello-world-senders' (1 items):
+[log-reaction]   [ADD] {"Id":"6","Sender":"Alice"}
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"From":"Alice","Message":"Hello World","MessageId":"6"}
 ```
 
 Now try a message that doesn't match the criteria:
@@ -590,7 +594,8 @@ docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -
 
 The console shows:
 ```
-[all-messages] + {"MessageId":7,"From":"Bob","Message":"Goodbye World"}
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"From":"Bob","Message":"Goodbye World","MessageId":"7"}
 ```
 
 Notice that `hello-world-senders` didn't produce any output — the new message doesn't meet the `WHERE` criteria, so it isn't part of the query's result set. The Reaction is only notified of changes to the result set.
