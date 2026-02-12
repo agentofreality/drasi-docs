@@ -569,14 +569,15 @@ Also, if you open the Drasi Server config file (getting-started.yaml), you'll se
 
 ### Test the hello-world-senders Continuous Query
 
+Run the following command to insert a new message that matches the `WHERE` criteria of the `hello-world-senders` query:
 
 ```bash
-# This WILL appear in hello-world-senders (meets the WHERE criteria)
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Hello World');"
 ```
 
-Watch the console:
+Watch the console and you will see notifications for both the `all-messages` and `hello-world-senders` queries — the new message is part of both query result sets:
+
 ```
 [log-reaction] Query 'hello-world-senders' (1 items):
 [log-reaction]   [ADD] {"Id":"6","Sender":"Alice"}
@@ -584,23 +585,21 @@ Watch the console:
 [log-reaction]   [ADD] {"From":"Alice","Message":"Hello World","MessageId":"6"}
 ```
 
-Now try a message that doesn't match the criteria:
+Now add a message that doesn't match the `hello-world-senders` criteria:
 
 ```bash
-# This will NOT appear in hello-world-senders (different message text)
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Bob', 'Goodbye World');"
 ```
 
-The console shows:
+The console shows the new message in the `all-messages` query, but there is no notification for the `hello-world-senders` query because the new message doesn't meet the query's `WHERE` criteria and so isn't part of that query's result set:
+
 ```
 [log-reaction] Query 'all-messages' (1 items):
 [log-reaction]   [ADD] {"From":"Bob","Message":"Goodbye World","MessageId":"7"}
 ```
 
-Notice that `hello-world-senders` didn't produce any output — the new message doesn't meet the `WHERE` criteria, so it isn't part of the query's result set. The Reaction is only notified of changes to the result set.
-
-**✅ Checkpoint**: You understand how Cypher `WHERE` clauses define which data is meaningful to a Continuous Query. Changes that don't affect the query's result set don't generate notifications.
+**✅ Checkpoint**: You understand how to add new Continuous Queries to a running Drasi Server instance via the REST API. You also understand how `WHERE` clauses in Continuous Queries control what data is part of the query's result set and therefore what changes generate notifications to subscribed Reactions.
 
 ---
 
