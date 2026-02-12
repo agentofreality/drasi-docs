@@ -372,60 +372,9 @@ Shortly after, the bootstrap process loads the initial data from the `Messages` 
 
 ```
 
-### Test the all-messages Continuous Query
-
-Open a **new terminal** and run the following command to insert a record into the `Message` table:
-
-```bash
-docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('You', 'My first message!');"
-```
-
-Watch the Drasi Server console — a notification of an addition to the `all-messages` query result appears instantly output by the Log Reaction:
-
-```text
-[log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [ADD] {"From":"You","Message":"My first message!","MessageId":"5"}
-```
-
-Now, run the following command to update the message we just inserted and change its text:
-
-```bash
-docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "UPDATE \"Message\" SET \"Message\" = 'My first UPDATED message!' WHERE \"MessageId\" = 5;"
-```
-
-The notification output by the Log Reaction shows the the item from the query result before and after the update:
-
-```text
-[log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [UPDATE] {"From":"You","Message":"My first message!","MessageId":"5"} -> {"From":"You","Message":"My first UPDATED message!","MessageId":"5"}
-```
-
-Finally, delete the message with this command:
-
-```bash
-docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "DELETE FROM \"Message\" WHERE \"MessageId\" = 5;"
-```
-
-The console shows the message being deleted from the query's result set:
-
-```text
-[log-reaction] Query 'all-messages' (1 items):
-[log-reaction]   [DELETE] {"From":"You","Message":"My first UPDATED message!","MessageId":"5"}
-```
-> **Tip:** You can customize the Log Reaction output format using templates. See [Configure Log Reaction](../how-to-guides/configuration/configure-reactions/configure-log-reaction/) for details.
-
-{{< alert title="Key Concept" color="info" >}}
-All data source changes that alter the result set of a Continuous Query generate notifications that are sent to subscribed Reactions for handling.
-{{< /alert >}}
-
-
-
 ### View Continuous Query Results
 
-Drasi Server provides a [REST API](../reference/rest-api/) through which you can view the current result set of any Continuous Query. Choose your preferred method to view the `all-messages` query results:
+At any time you can view the current result set of a Continuous Query using Drasi Server's [REST API](../reference/rest-api/). For example, choose your preferred method to view the `all-messages` query results:
 
 {{< tabpane text=true >}}
 {{% tab header="Browser" %}}
@@ -446,15 +395,14 @@ curl -s http://localhost:8080/api/v1/queries/all-messages/results
 {{% /tab %}}
 {{% tab header="VS Code REST Client" %}}
 
-If you are using VS Code, you can call the REST API using the <a href="https://marketplace.visualstudio.com/items?itemName=humao.rest-client" target="_blank">REST Client extension</a>
+If you are using VS Code, you can call the REST API using the <a href="https://marketplace.visualstudio.com/items?itemName=humao.rest-client" target="_blank">REST Client extension</a>.
 
-
-The Drasi Server repo contains a file at `examples/getting-started/requests.http` that includes pre-written REST API requests for use with the Getting Started tutorial.
+The Drasi Server repo includes a file at `examples/getting-started/requests.http` that contains a variety of pre-written REST API requests for use with the Getting Started tutorial.
 
 {{% /tab %}}
 {{< /tabpane >}}
 
-You should see the current result set for the `all-messages` query, including the message you just inserted:
+However you choose to view the `all-messages` results, that data will look something like this (formatted for readability):
 
 ```json
 {
@@ -479,11 +427,6 @@ You should see the current result set for the `all-messages` query, including th
       "From": "David",
       "Message": "I am Spartacus",
       "MessageId": "4"
-    },
-    {
-      "From": "You",
-      "Message": "My first message!",
-      "MessageId": "5"
     }
   ],
   "error": null
@@ -492,9 +435,64 @@ You should see the current result set for the `all-messages` query, including th
 
 > **Tip:** The Drasi Server REST API also provides a Swagger UI at **http://localhost:808/api/v1/docs/** where you can explore all available endpoints interactively.
 
+### Test the all-messages Continuous Query
+
+Open a **new terminal** and run the following command to manually insert a record into the `Message` table:
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('You', 'My first message!');"
+```
+
+Watch the Drasi Server console — a notification of an addition to the `all-messages` query result appears instantly output by the Log Reaction:
+
+```text
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [ADD] {"From":"You","Message":"My first message!","MessageId":"5"}
+```
+> **Tip:** You can customize the Log Reaction output format using templates. See [Configure Log Reaction](../how-to-guides/configuration/configure-reactions/configure-log-reaction/) for details.
+
+If you view the `all-messages` query results again through the REST API, you'll see the new message included in the result set.
+
+Now, run the following command to update the message we just inserted and change its text:
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "UPDATE \"Message\" SET \"Message\" = 'My first UPDATED message!' WHERE \"MessageId\" = 5;"
+```
+
+The notification output by the Log Reaction shows the the item from the query result before and after the update:
+
+```text
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [UPDATE] {"From":"You","Message":"My first message!","MessageId":"5"} -> {"From":"You","Message":"My first UPDATED message!","MessageId":"5"}
+```
+
+If you view the `all-messages` query results again through the REST API, you'll see the message text has been updated in the query result set.
+
+Finally, delete the message with this command:
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "DELETE FROM \"Message\" WHERE \"MessageId\" = 5;"
+```
+
+The console shows the message being deleted from the query's result set:
+
+```text
+[log-reaction] Query 'all-messages' (1 items):
+[log-reaction]   [DELETE] {"From":"You","Message":"My first UPDATED message!","MessageId":"5"}
+```
+
+If you view the `all-messages` query results again through the REST API, you'll see the message is no longer included in the result set.
+
+{{< alert title="Key Concept" color="info" >}}
+All data source changes that alter the result set of a Continuous Query generate notifications that are delivered to subscribed Reactions for handling. The above example demonstrates the simple Log Reaction that displays these notifications to the console, but there are more sophisticated Reactions that can send notifications to other systems, trigger actions, update databases, and more. You can also write your own custom Reactions to implement any behavior you want in response to changes in your data.
+{{< /alert >}}
+
 <div style="margin-top: 1.5rem;"></div>
 
-**✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. You've seen how changes in the database flow into Drasi Server and notification of changes to Continuous Query results are output by the Log Reaction in real time. You also know how to view the current result set of a Continuous Query through the REST API.
+**✅ Checkpoint**: You've created your first Source, Continuous Query, and Reaction. You know how to view the current result set of a Continuous Query through the REST API. And you've also seen how changes in the database flow into Drasi Server and notification of changes to Continuous Query results are output by Reactions as soon as they happen. 
 
 ---
 
