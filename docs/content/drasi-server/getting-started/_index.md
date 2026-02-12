@@ -627,7 +627,7 @@ The `count(m)` aggregation groups messages by their `Message` text and counts ho
 ### Add the Query via the REST API
 
 ```bash
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
+curl -X POST http://localhost:8080/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "message-counts",
@@ -654,7 +654,7 @@ In a **new terminal**, start the SSE CLI to stream changes from the `message-cou
 
 ```bash
 ./examples/sse-cli/target/release/drasi-sse-cli \
-  --server http://localhost:${SERVER_PORT:-8080} \
+  --server http://localhost:8080 \
   --query message-counts
 ```
 
@@ -680,12 +680,50 @@ Watch the SSE CLI terminal — you'll see the count update:
 {
   "queryId": "message-counts",
   "results": [
-    { "op": "u", "data": { "before": { "MessageText": "Hello World", "Count": 2 }, "after": { "MessageText": "Hello World", "Count": 3 } } }
+    { 
+      "after": { 
+        "Count": 3,
+        "MessageText": "Hello World"
+      },
+      "before": { 
+        "Count": 2,
+        "MessageText": "Hello World"
+      }
+    }
   ]
 }
 ```
 
-The count for "Hello World" incremented from 2 to 3. Drasi didn't re-scan the table — it incrementally updated the aggregation based on the single inserted row.
+The count for "Hello World" incremented from 2 to 3. 
+
+Now delete Eve's message:
+
+```bash
+docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
+  "DELETE FROM \"Message\" WHERE \"From\" = 'Eve';"
+```
+
+The count goes back down:
+
+```json
+{
+  "queryId": "message-counts",
+  "results": [
+    { 
+      "after": { 
+        "Count": 2,
+        "MessageText": "Hello World"
+      },
+      "before": { 
+        "Count": 3,
+        "MessageText": "Hello World"
+      }
+    }
+  ]
+}
+```
+
+Drasi didn't re-scan the table — it incrementally updated the aggregation based on each individual change.
 
 Press `Ctrl+C` in the SSE CLI terminal to stop streaming.
 
