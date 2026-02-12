@@ -16,8 +16,8 @@ This Getting Started tutorial teaches you how to use Drasi Server by progressive
 | **[Step 2: Set Up the Tutorial Database](#database)** | Start a PostgreSQL database and load sample data | 3 min |
 | **[Step 3: Create Your First Configuration](#phase-1)** | Use `drasi-server init` to create a Source, Continuous Query, and Log Reaction — see changes flow through Drasi in real time | 10 min |
 | **[Step 4: Add a Query with Criteria](#phase-2)** | Add a filtered query via the REST API — learn how `WHERE` clauses control which changes generate notifications | 3 min |
-| **[Step 5: Add an Aggregation Query](#phase-3)** | Add a query with `count()` — see aggregations update automatically as data changes | 3 min |
-| **[Step 6: Add Time-Based Detection](#phase-4)** | Detect the *absence* of activity over time and add an SSE Reaction for browser-based streaming | 5 min |
+| **[Step 5: Add an Aggregation Query](#phase-3)** | Add a query with `count()` — see aggregations update automatically as data changes. Introduces the SSE CLI for streaming results | 5 min |
+| **[Step 6: Add Time-Based Detection](#phase-4)** | Detect the *absence* of activity over time — a powerful capability for monitoring and alerting | 5 min |
 | **[Step 7: Add Cross-Source Joins](#phase-5)** | Add an HTTP Source and join its data with PostgreSQL data using virtual relationships | 5 min |
 
 **Steps 1–3** give you a working Drasi Server example in under 20 minutes. **Steps 4–7** are optional and explore progressively advanced capabilities — complete as many as you like.
@@ -605,11 +605,26 @@ The console shows the new message in the `all-messages` query, but there is no n
 
 ## Step 5: Add an Aggregation Query {#phase-3}
 
-Drasi maintains state, so you can run aggregations that update automatically as data changes.
+Drasi maintains state across all the data it processes, enabling Continuous Queries that compute aggregations — like counts, sums, or averages — that update automatically as the underlying data changes. This is useful for dashboards, reporting, and any scenario where you need live summary statistics without polling or recalculating from scratch.
+
+### The message-counts Query
+
+Here's the new query as it would appear in a Drasi Server config file:
+
+```yaml
+- id: message-counts
+  autoStart: true
+  sources:
+    - sourceId: my-postgres
+  query: |
+    MATCH (m:Message) 
+    RETURN m.Message AS MessageText, count(m) AS Count
+  queryLanguage: Cypher
+```
+
+The `count(m)` aggregation groups messages by their `Message` text and counts how many times each message has been sent. As messages are inserted or deleted, Drasi automatically recalculates the affected counts.
 
 ### Add the Query via the REST API
-
-Create a query that counts how many times each message has been sent:
 
 ```bash
 curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
@@ -623,58 +638,85 @@ curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   }'
 ```
 
-### Update the Log Reaction
+### Introduce the SSE CLI
 
-Delete and re-create the Log Reaction to subscribe to all three queries:
+Until now, you've been watching changes through the Log Reaction in the Drasi Server console. For the remaining steps, you'll use the **SSE CLI** — a command-line tool included in the Drasi Server repo that streams query result changes directly to your terminal. It automatically creates a temporary SSE Reaction on the server and cleans it up when you press `Ctrl+C`.
+
+Build the SSE CLI:
 
 ```bash
-curl -X DELETE http://localhost:${SERVER_PORT:-8080}/api/v1/reactions/log-reaction
-
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "kind": "log",
-    "id": "log-reaction",
-    "queries": ["all-messages", "hello-world-senders", "message-counts"],
-    "autoStart": true
-  }'
+cd examples/sse-cli && cargo build --release && cd ../..
 ```
 
-You'll see the aggregated counts in the console output:
+### Stream the message-counts Query
+
+In a **new terminal**, start the SSE CLI to stream changes from the `message-counts` query:
+
+```bash
+./examples/sse-cli/target/release/drasi-sse-cli \
+  --server http://localhost:${SERVER_PORT:-8080} \
+  --query message-counts
 ```
-[message-counts] + {"MessageText":"To infinity and beyond!","Count":1}
-[message-counts] + {"MessageText":"Hello World","Count":2}
-[message-counts] + {"MessageText":"I am Spartacus","Count":2}
-[message-counts] + {"MessageText":"My first message!","Count":1}
-[message-counts] + {"MessageText":"Goodbye World","Count":1}
+
+You'll see:
+
+```text
+Creating SSE reaction 'sse-cli-...' for query 'message-counts'... done.
+Streaming events (Ctrl-C to stop)...
 ```
 
 ### Test Aggregation Updates
+
+In your other terminal, insert a new "Hello World" message:
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Eve', 'Hello World');"
 ```
 
-Watch the count update automatically:
-```
-[message-counts] - {"MessageText":"Hello World","Count":2}
-[message-counts] + {"MessageText":"Hello World","Count":3}
+Watch the SSE CLI terminal — you'll see the count update:
+
+```json
+{
+  "queryId": "message-counts",
+  "results": [
+    { "op": "u", "data": { "before": { "MessageText": "Hello World", "Count": 2 }, "after": { "MessageText": "Hello World", "Count": 3 } } }
+  ]
+}
 ```
 
-The `-` shows the old value being removed, and `+` shows the new value. The count for "Hello World" incremented from 2 to 3.
+The count for "Hello World" incremented from 2 to 3. Drasi didn't re-scan the table — it incrementally updated the aggregation based on the single inserted row.
 
-**✅ Checkpoint**: You understand that Drasi tracks state — aggregations update in real-time as data changes.
+Press `Ctrl+C` in the SSE CLI terminal to stop streaming.
+
+**✅ Checkpoint**: You understand that Drasi tracks state — aggregations update in real-time as data changes, without re-querying the database.
 
 ---
 
 ## Step 6: Add Time-Based Detection {#phase-4}
 
-Drasi can detect patterns over time, including the *absence* of activity.
+Drasi can detect patterns over time, including the *absence* of activity. This is powerful for monitoring and alerting scenarios — for example, detecting when a sensor stops reporting, when a user goes idle, or when an expected event doesn't happen within a deadline.
+
+### The inactive-senders Query
+
+Here's the new query as it would appear in a Drasi Server config file:
+
+```yaml
+- id: inactive-senders
+  autoStart: true
+  sources:
+    - sourceId: my-postgres
+  query: |
+    MATCH (m:Message) 
+    WITH m.From AS Sender, max(m.CreatedAt) AS LastSeen 
+    WHERE LastSeen < datetime() - duration('PT20S') 
+    RETURN Sender, LastSeen
+  queryLanguage: Cypher
+```
+
+This query uses `max(m.CreatedAt)` to find each sender's most recent message, then the `WHERE` clause filters to senders whose last message was more than 20 seconds ago (`duration('PT20S')`). As time passes, Drasi automatically re-evaluates the time condition — senders will appear in the result set when they go idle and disappear when they send a new message.
 
 ### Add the Query via the REST API
-
-Create a query that identifies senders who haven't sent a message in the last 20 seconds:
 
 ```bash
 curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
@@ -688,51 +730,49 @@ curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   }'
 ```
 
-### Add a Browser Reaction
+### Stream the inactive-senders Query
 
-So far you've used the Log Reaction to view changes in the console. Now add an SSE (Server-Sent Events) Reaction to also view query result set changes in a browser:
+In a separate terminal, start the SSE CLI:
 
 ```bash
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "kind": "sse",
-    "id": "browser-stream",
-    "autoStart": true,
-    "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders"],
-    "host": "0.0.0.0",
-    "port": '"${SSE_PORT:-8081}"',
-    "ssePath": "/events"
-  }'
+./examples/sse-cli/target/release/drasi-sse-cli \
+  --server http://localhost:${SERVER_PORT:-8080} \
+  --query inactive-senders
 ```
-
-Open <a href="http://localhost:8081" target="_blank">http://localhost:&lt;SSE_PORT&gt;</a> in your browser (port `8081` for Download Binary / Build from Source, or `8181` for Dev Container / Codespace). You'll see query result set changes appearing as JSON in real time.
 
 ### Wait and Observe
 
-After about 20 seconds of inactivity, senders will start appearing in the `inactive-senders` output:
+After about 20 seconds of inactivity, senders will start appearing in the SSE CLI output as they become inactive:
 
-```
-[inactive-senders] + {"Sender":"Buzz Lightyear","LastSeen":"2024-..."}
-[inactive-senders] + {"Sender":"Brian Kernighan","LastSeen":"2024-..."}
+```json
+{
+  "queryId": "inactive-senders",
+  "results": [
+    { "op": "i", "data": { "Sender": "Buzz Lightyear", "LastSeen": "2026-..." } }
+  ]
+}
 ```
 
 ### Reactivate a Sender
+
+In your other terminal, send a message from Alice:
 
 ```bash
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Still here!');"
 ```
 
-Watch Alice disappear from the inactive list (she just sent a message). After 20 more seconds of inactivity, she'll reappear.
+Watch the SSE CLI — Alice disappears from the inactive list (her `LastSeen` just updated). After 20 more seconds of inactivity, she'll reappear.
 
-**✅ Checkpoint**: You understand that Drasi can detect the *absence* of activity over time — a powerful capability for monitoring and alerting. You also have two Reactions (Log and SSE) distributing notifications from the same queries to different destinations.
+Press `Ctrl+C` to stop the SSE CLI.
+
+**✅ Checkpoint**: You understand that Drasi can detect the *absence* of activity over time — a powerful capability for monitoring, alerting, and SLA enforcement.
 
 ---
 
 ## Step 7: Add Cross-Source Joins {#phase-5}
 
-So far you've used a single PostgreSQL source. Now you'll add an HTTP source and join data across both sources.
+So far you've used a single PostgreSQL source. Now you'll add an HTTP source and join data across both sources using a virtual relationship. Cross-source joins are useful when related data lives in different systems — for example, combining database records with live data from APIs, IoT devices, or microservices.
 
 **Scenario**: Track where message senders are currently located and their availability status. Imagine the HTTP source receives location updates from a mobile app or badge system.
 
@@ -758,9 +798,33 @@ curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/sources \
 
 The `bootstrapProvider` loads initial location data from a JSON file on startup.
 
-### Add a Join Query
+### The messages-with-location Query
 
-Create a query that joins messages with user locations:
+Here's the join query as it would appear in a Drasi Server config file:
+
+```yaml
+- id: messages-with-location
+  autoStart: true
+  sources:
+    - sourceId: my-postgres
+    - sourceId: location-tracker
+  query: |
+    MATCH (m:Message)-[:FROM_USER]->(u:UserLocation) 
+    RETURN m.MessageId AS Id, m.Message AS Message, 
+           m.From AS Sender, u.location AS Location, u.status AS Status
+  queryLanguage: Cypher
+  joins:
+    - id: FROM_USER
+      keys:
+        - label: Message
+          property: From
+        - label: UserLocation
+          property: name
+```
+
+The `joins` section creates a virtual relationship `FROM_USER` that connects `Message.From` to `UserLocation.name`. This lets the `MATCH` clause traverse across sources as if the data were in a single graph. The query references **two sources** — `my-postgres` and `location-tracker` — and Drasi handles the join across them.
+
+### Add the Query via the REST API
 
 ```bash
 curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
@@ -781,45 +845,17 @@ curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
   }'
 ```
 
-The `joins` section creates a virtual relationship `FROM_USER` that connects `Message.From` to `UserLocation.name`.
+### Stream the messages-with-location Query
 
-### Update the Reactions
-
-Update both the Log and SSE Reactions to subscribe to the new query:
+In a separate terminal, start the SSE CLI:
 
 ```bash
-curl -X DELETE http://localhost:${SERVER_PORT:-8080}/api/v1/reactions/log-reaction
-
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "kind": "log",
-    "id": "log-reaction",
-    "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders", "messages-with-location"],
-    "autoStart": true
-  }'
-
-curl -X DELETE http://localhost:${SERVER_PORT:-8080}/api/v1/reactions/browser-stream
-
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/reactions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "kind": "sse",
-    "id": "browser-stream",
-    "autoStart": true,
-    "queries": ["all-messages", "hello-world-senders", "message-counts", "inactive-senders", "messages-with-location"],
-    "host": "0.0.0.0",
-    "port": '"${SSE_PORT:-8081}"',
-    "ssePath": "/events"
-  }'
+./examples/sse-cli/target/release/drasi-sse-cli \
+  --server http://localhost:${SERVER_PORT:-8080} \
+  --query messages-with-location
 ```
 
-The bootstrap loads location data for 4 users. You'll see the joined output:
-
-```
-[messages-with-location] + {"Id":2,"Message":"Hello World","Sender":"Brian Kernighan","Location":"Building A, Floor 3","Status":"online"}
-[messages-with-location] + {"Id":1,"Message":"To infinity and beyond!","Sender":"Buzz Lightyear","Location":"Space Station","Status":"away"}
-```
+The bootstrap data includes locations for some senders, so you may see initial results appear.
 
 ### Update Location in Real-Time
 
@@ -832,30 +868,34 @@ curl -X POST http://localhost:9000 -H "Content-Type: application/json" -d '{
 }'
 ```
 
-Watch the console — Brian's messages now show the new location:
+Watch the SSE CLI — Brian's messages now show the new location:
 
-```
-[messages-with-location] - {"Id":2,"Message":"Hello World","Sender":"Brian Kernighan","Location":"Building A, Floor 3","Status":"online"}
-[messages-with-location] + {"Id":2,"Message":"Hello World","Sender":"Brian Kernighan","Location":"Conference Room B","Status":"away"}
+```json
+{
+  "queryId": "messages-with-location",
+  "results": [
+    { "op": "u", "data": { "before": { "Id": 2, "Message": "Hello World", "Sender": "Brian Kernighan", "Location": "Building A, Floor 3", "Status": "online" }, "after": { "Id": 2, "Message": "Hello World", "Sender": "Brian Kernighan", "Location": "Conference Room B", "Status": "away" } } }
+  ]
+}
 ```
 
 ### Add a New User Location
 
-When a new user starts sending messages, add their location:
+Send a message from a new user and then add their location:
 
 ```bash
-# First, send a message from a new user
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Good morning!');"
 
-# Then add Alice's location
 curl -X POST http://localhost:9000 -H "Content-Type: application/json" -d '{
   "op": "insert", "label": "UserLocation", "id": "alice",
   "properties": {"name": "Alice", "location": "Home Office", "status": "online"}
 }'
 ```
 
-Alice's message appears in the joined query once her location is added.
+Alice's message appears in the joined query once her location is added — the join is resolved in real-time.
+
+Press `Ctrl+C` to stop the SSE CLI.
 
 **✅ Checkpoint**: You understand how to join data across multiple sources using virtual relationships. Changes to either source propagate through the join in real-time.
 
@@ -869,7 +909,7 @@ You built a complete change-driven solution from scratch:
 |---------|-------------|
 | **Sources** | Created PostgreSQL and HTTP sources to connect Drasi to different data systems |
 | **Queries** | Wrote 5 Continuous Queries: simple change detection, criteria-based selection, aggregation, time-based detection, and cross-source joins |
-| **Reactions** | Configured Log and SSE reactions to distribute notifications of query result changes to console and browser |
+| **Reactions** | Configured a Log Reaction for console output and used the SSE CLI to stream query result changes to your terminal |
 | **Joins** | Connected data across sources using virtual relationships |
 | **Configuration** | Used `drasi-server init` to scaffold an initial configuration, then dynamically added components via the REST API |
 | **REST API** | Used the REST API to create, delete, and query Sources, Continuous Queries, and Reactions while the server is running |
