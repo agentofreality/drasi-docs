@@ -821,28 +821,6 @@ So far you've used a single PostgreSQL source. Now you'll add an HTTP source and
 
 **Scenario**: Track where message senders are currently located and their availability status. Imagine the HTTP source receives location updates from a mobile app or badge system.
 
-### Add an HTTP Source
-
-Create the HTTP source via the REST API:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/sources \
-  -H "Content-Type: application/json" \
-  -d '{
-    "kind": "http",
-    "id": "location-tracker",
-    "autoStart": true,
-    "host": "0.0.0.0",
-    "port": 9000,
-    "bootstrapProvider": {
-      "kind": "scriptfile",
-      "filePaths": ["examples/getting-started/locations.json"]
-    }
-  }'
-```
-
-The `bootstrapProvider` loads initial location data from a JSON file on startup.
-
 ### The messages-with-location Query
 
 Here's the join query as it would appear in a Drasi Server config file:
@@ -868,6 +846,28 @@ Here's the join query as it would appear in a Drasi Server config file:
 ```
 
 The `joins` section creates a virtual relationship `FROM_USER` that connects `Message.From` to `UserLocation.name`. This lets the `MATCH` clause traverse across sources as if the data were in a single graph. The query references **two sources** — `my-postgres` and `location-tracker` — and Drasi handles the join across them.
+
+### Add an HTTP Source
+
+Create the HTTP source via the REST API:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/sources \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "http",
+    "id": "location-tracker",
+    "autoStart": true,
+    "host": "0.0.0.0",
+    "port": 9000,
+    "bootstrapProvider": {
+      "kind": "scriptfile",
+      "filePaths": ["examples/getting-started/locations.json"]
+    }
+  }'
+```
+
+The `bootstrapProvider` loads initial location data from a JSON file on startup.
 
 ### Add the Query via the REST API
 
