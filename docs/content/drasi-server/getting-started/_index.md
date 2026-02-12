@@ -746,24 +746,31 @@ Here's the new query as it would appear in a Drasi Server config file:
     - sourceId: my-postgres
   query: |
     MATCH (m:Message) 
-    WITH m.From AS Sender, max(m.CreatedAt) AS LastSeen 
-    WHERE LastSeen < datetime() - duration('PT20S') 
-    RETURN Sender, LastSeen
+    WITH m.From AS MessageFrom, max(drasi.changeDateTime(m)) AS LastMessageTimestamp 
+    WHERE LastMessageTimestamp <= datetime.realtime() - duration({ seconds: 20 }) 
+      OR drasi.trueLater(LastMessageTimestamp <= datetime.realtime() - duration({ seconds: 20 }), 
+                         LastMessageTimestamp + duration({ seconds: 20 })) 
+    RETURN MessageFrom, LastMessageTimestamp
   queryLanguage: Cypher
 ```
 
-This query uses `max(m.CreatedAt)` to find each sender's most recent message, then the `WHERE` clause filters to senders whose last message was more than 20 seconds ago (`duration('PT20S')`). As time passes, Drasi automatically re-evaluates the time condition — senders will appear in the result set when they go idle and disappear when they send a new message.
+This query introduces two Drasi-specific functions:
+
+- **`drasi.changeDateTime(m)`** — returns the timestamp when the node was last changed, rather than relying on a user-managed timestamp column. This means the query works even if the table doesn't have a `CreatedAt` field.
+- **`drasi.trueLater(condition, futureTime)`** — schedules Drasi to re-evaluate the condition at `futureTime`. Without this, the time-based `WHERE` clause would only be checked when data changes. With `drasi.trueLater`, Drasi automatically re-evaluates after the 20-second window expires, causing idle senders to appear in the result set even when no new data arrives.
+
+The `WHERE` clause combines two conditions with `OR`: senders who are *already* inactive, and a scheduled future check for senders who *will become* inactive if no new message arrives within 20 seconds.
 
 ### Add the Query via the REST API
 
 ```bash
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
+curl -X POST http://localhost:8080/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "inactive-senders",
     "autoStart": true,
     "sources": [{"sourceId": "my-postgres"}],
-    "query": "MATCH (m:Message) WITH m.From AS Sender, max(m.CreatedAt) AS LastSeen WHERE LastSeen < datetime() - duration('\''PT20S'\'') RETURN Sender, LastSeen",
+    "query": "MATCH (m:Message) WITH m.From AS MessageFrom, max(drasi.changeDateTime(m)) AS LastMessageTimestamp WHERE LastMessageTimestamp <= datetime.realtime() - duration({ seconds: 20 }) OR drasi.trueLater(LastMessageTimestamp <= datetime.realtime() - duration({ seconds: 20 }), LastMessageTimestamp + duration({ seconds: 20 })) RETURN MessageFrom, LastMessageTimestamp",
     "queryLanguage": "Cypher"
   }'
 ```
@@ -774,7 +781,7 @@ In a separate terminal, start the SSE CLI:
 
 ```bash
 ./examples/sse-cli/target/release/drasi-sse-cli \
-  --server http://localhost:${SERVER_PORT:-8080} \
+  --server http://localhost:8080 \
   --query inactive-senders
 ```
 
@@ -786,7 +793,7 @@ After about 20 seconds of inactivity, senders will start appearing in the SSE CL
 {
   "queryId": "inactive-senders",
   "results": [
-    { "op": "i", "data": { "Sender": "Buzz Lightyear", "LastSeen": "2026-..." } }
+    { "op": "i", "data": { "MessageFrom": "Buzz Lightyear", "LastMessageTimestamp": "2026-..." } }
   ]
 }
 ```
@@ -800,7 +807,7 @@ docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Still here!');"
 ```
 
-Watch the SSE CLI — Alice disappears from the inactive list (her `LastSeen` just updated). After 20 more seconds of inactivity, she'll reappear.
+Watch the SSE CLI — Alice disappears from the inactive list (her `LastMessageTimestamp` just updated). After 20 more seconds of inactivity, she'll reappear automatically thanks to `drasi.trueLater`.
 
 Press `Ctrl+C` to stop the SSE CLI.
 
@@ -819,7 +826,7 @@ So far you've used a single PostgreSQL source. Now you'll add an HTTP source and
 Create the HTTP source via the REST API:
 
 ```bash
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/sources \
+curl -X POST http://localhost:8080/api/v1/sources \
   -H "Content-Type: application/json" \
   -d '{
     "kind": "http",
@@ -828,8 +835,8 @@ curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/sources \
     "host": "0.0.0.0",
     "port": 9000,
     "bootstrapProvider": {
-      "kind": "script",
-      "path": "examples/getting-started/locations.json"
+      "kind": "scriptfile",
+      "filePaths": ["examples/getting-started/locations.json"]
     }
   }'
 ```
@@ -865,7 +872,7 @@ The `joins` section creates a virtual relationship `FROM_USER` that connects `Me
 ### Add the Query via the REST API
 
 ```bash
-curl -X POST http://localhost:${SERVER_PORT:-8080}/api/v1/queries \
+curl -X POST http://localhost:8080/api/v1/queries \
   -H "Content-Type: application/json" \
   -d '{
     "id": "messages-with-location",
@@ -889,7 +896,7 @@ In a separate terminal, start the SSE CLI:
 
 ```bash
 ./examples/sse-cli/target/release/drasi-sse-cli \
-  --server http://localhost:${SERVER_PORT:-8080} \
+  --server http://localhost:8080 \
   --query messages-with-location
 ```
 
@@ -900,9 +907,16 @@ The bootstrap data includes locations for some senders, so you may see initial r
 Simulate Brian moving to a new location by sending an update to the HTTP source:
 
 ```bash
-curl -X POST http://localhost:9000 -H "Content-Type: application/json" -d '{
-  "op": "update", "label": "UserLocation", "id": "brian",
-  "properties": {"name": "Brian Kernighan", "location": "Conference Room B", "status": "away"}
+curl -X POST http://localhost:9000/sources/location-tracker/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operation": "update",
+    "element": {
+      "type": "node",
+      "id": "brian",
+      "labels": ["UserLocation"],
+      "properties": {"name": "Brian Kernighan", "location": "Conference Room B", "status": "away"}
+    }
 }'
 ```
 
@@ -925,9 +939,16 @@ Send a message from a new user and then add their location:
 docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
   "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Good morning!');"
 
-curl -X POST http://localhost:9000 -H "Content-Type: application/json" -d '{
-  "op": "insert", "label": "UserLocation", "id": "alice",
-  "properties": {"name": "Alice", "location": "Home Office", "status": "online"}
+curl -X POST http://localhost:9000/sources/location-tracker/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operation": "insert",
+    "element": {
+      "type": "node",
+      "id": "brian",
+      "labels": ["UserLocation"],
+      "properties": {"name": "Alice", "location": "Home Office", "status": "online"}
+    }
 }'
 ```
 
