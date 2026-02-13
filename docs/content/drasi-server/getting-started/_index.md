@@ -18,9 +18,8 @@ This Getting Started tutorial teaches you how to use Drasi Server by progressive
 | **[Step 4: Add a Query with Criteria](#phase-2)** | Add a filtered query via the REST API — learn how `WHERE` clauses control which changes generate notifications | 3 min |
 | **[Step 5: Add an Aggregation Query](#phase-3)** | Add a query with `count()` — see aggregations update automatically as data changes. Introduces the SSE CLI for streaming results | 5 min |
 | **[Step 6: Add Time-Based Detection](#phase-4)** | Detect the *absence* of activity over time — a powerful capability for monitoring and alerting | 5 min |
-| **[Step 7: Add Cross-Source Joins](#phase-5)** | Add an HTTP Source and join its data with PostgreSQL data using virtual relationships | 5 min |
 
-**Steps 1–3** give you a working Drasi Server example in under 20 minutes. **Steps 4–7** are optional and explore progressively advanced capabilities — complete as many as you like.
+**Steps 1–3** give you a working Drasi Server example in under 20 minutes. **Steps 4–6** are optional and explore progressively advanced capabilities — complete as many as you like.
 
 ## Step 1: Set Up Your Environment {#setup}
 
@@ -815,161 +814,15 @@ Press `Ctrl+C` to stop the SSE CLI.
 
 ---
 
-## Step 7: Add Cross-Source Joins {#phase-5}
-
-So far you've used a single PostgreSQL source. Now you'll add an HTTP source and join data across both sources using a virtual relationship. Cross-source joins are useful when related data lives in different systems — for example, combining database records with live data from APIs, IoT devices, or microservices.
-
-**Scenario**: Track where message senders are currently located and their availability status. Imagine the HTTP source receives location updates from a mobile app or badge system.
-
-### The messages-with-location Query
-
-Here's the join query as it would appear in a Drasi Server config file:
-
-```yaml
-- id: messages-with-location
-  autoStart: true
-  sources:
-    - sourceId: my-postgres
-    - sourceId: location-tracker
-  query: |
-    MATCH (m:Message)-[:FROM_USER]->(u:UserLocation) 
-    RETURN m.MessageId AS Id, m.Message AS Message, 
-           m.From AS Sender, u.location AS Location, u.status AS Status
-  queryLanguage: Cypher
-  joins:
-    - id: FROM_USER
-      keys:
-        - label: Message
-          property: From
-        - label: UserLocation
-          property: name
-```
-
-The `joins` section creates a virtual relationship `FROM_USER` that connects `Message.From` to `UserLocation.name`. This lets the `MATCH` clause traverse across sources as if the data were in a single graph. The query references **two sources** — `my-postgres` and `location-tracker` — and Drasi handles the join across them.
-
-### Add an HTTP Source
-
-Create the HTTP source via the REST API:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/sources \
-  -H "Content-Type: application/json" \
-  -d '{
-    "kind": "http",
-    "id": "location-tracker",
-    "autoStart": true,
-    "host": "0.0.0.0",
-    "port": 9000,
-    "bootstrapProvider": {
-      "kind": "scriptfile",
-      "filePaths": ["examples/getting-started/locations.json"]
-    }
-  }'
-```
-
-The `bootstrapProvider` loads initial location data from a JSON file on startup.
-
-### Add the Query via the REST API
-
-```bash
-curl -X POST http://localhost:8080/api/v1/queries \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "messages-with-location",
-    "autoStart": true,
-    "sources": [{"sourceId": "my-postgres"}, {"sourceId": "location-tracker"}],
-    "query": "MATCH (m:Message)-[:FROM_USER]->(u:UserLocation) RETURN m.MessageId AS Id, m.Message AS Message, m.From AS Sender, u.location AS Location, u.status AS Status",
-    "queryLanguage": "Cypher",
-    "joins": [{
-      "id": "FROM_USER",
-      "keys": [
-        {"label": "Message", "property": "From"},
-        {"label": "UserLocation", "property": "name"}
-      ]
-    }]
-  }'
-```
-
-### Stream the messages-with-location Query
-
-In a separate terminal, start the SSE CLI:
-
-```bash
-./examples/sse-cli/target/release/drasi-sse-cli \
-  --server http://localhost:8080 \
-  --query messages-with-location
-```
-
-The bootstrap data includes locations for some senders, so you may see initial results appear.
-
-### Update Location in Real-Time
-
-Simulate Brian moving to a new location by sending an update to the HTTP source:
-
-```bash
-curl -X POST http://localhost:9000/sources/location-tracker/events \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "update",
-    "element": {
-      "type": "node",
-      "id": "brian",
-      "labels": ["UserLocation"],
-      "properties": {"name": "Brian Kernighan", "location": "Conference Room B", "status": "away"}
-    }
-}'
-```
-
-Watch the SSE CLI — Brian's messages now show the new location:
-
-```json
-{
-  "queryId": "messages-with-location",
-  "results": [
-    { "op": "u", "data": { "before": { "Id": 2, "Message": "Hello World", "Sender": "Brian Kernighan", "Location": "Building A, Floor 3", "Status": "online" }, "after": { "Id": 2, "Message": "Hello World", "Sender": "Brian Kernighan", "Location": "Conference Room B", "Status": "away" } } }
-  ]
-}
-```
-
-### Add a New User Location
-
-Send a message from a new user and then add their location:
-
-```bash
-docker exec -it getting-started-postgres psql -U drasi_user -d getting_started -c \
-  "INSERT INTO \"Message\" (\"From\", \"Message\") VALUES ('Alice', 'Good morning!');"
-
-curl -X POST http://localhost:9000/sources/location-tracker/events \
-  -H "Content-Type: application/json" \
-  -d '{
-    "operation": "insert",
-    "element": {
-      "type": "node",
-      "id": "brian",
-      "labels": ["UserLocation"],
-      "properties": {"name": "Alice", "location": "Home Office", "status": "online"}
-    }
-}'
-```
-
-Alice's message appears in the joined query once her location is added — the join is resolved in real-time.
-
-Press `Ctrl+C` to stop the SSE CLI.
-
-**✅ Checkpoint**: You understand how to join data across multiple sources using virtual relationships. Changes to either source propagate through the join in real-time.
-
----
-
 ## What You've Learned {#summary}
 
 You built a complete change-driven solution from scratch:
 
 | Concept | What You Did |
 |---------|-------------|
-| **Sources** | Created PostgreSQL and HTTP sources to connect Drasi to different data systems |
-| **Queries** | Wrote 5 Continuous Queries: simple change detection, criteria-based selection, aggregation, time-based detection, and cross-source joins |
+| **Sources** | Created a PostgreSQL source to connect Drasi to your database |
+| **Queries** | Wrote 4 Continuous Queries: simple change detection, criteria-based selection, aggregation, and time-based detection |
 | **Reactions** | Configured a Log Reaction for console output and used the SSE CLI to stream query result changes to your terminal |
-| **Joins** | Connected data across sources using virtual relationships |
 | **Configuration** | Used `drasi-server init` to scaffold an initial configuration, then dynamically added components via the REST API |
 | **REST API** | Used the REST API to create, delete, and query Sources, Continuous Queries, and Reactions while the server is running |
 
