@@ -78,6 +78,18 @@ drasi-server 0.1.0
 
 ---
 
+## Set Environment Variables
+
+The tutorial uses environment variables for port numbers and database host so the same commands work across all setup environments. Run the following to set the defaults for the Download Binary environment:
+
+```bash
+export SERVER_PORT=8080
+export SSE_PORT=8081
+export POSTGRES_HOST_PORT=5432
+```
+
+---
+
 ## ✅ Environment Setup Complete!
 
 You now have Drasi Server accessible at `./bin/drasi-server` from the repository root.

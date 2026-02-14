@@ -56,10 +56,10 @@ code .
 When VS Code opens, you'll see a notification:
 > **Folder contains a Dev Container configuration file. Reopen folder to develop in a container.**
 
-Click **Reopen in Container**.
+Click **Reopen in Container**. When prompted to select a dev container configuration, choose **Drasi Server - Getting Started Tutorial**.
 
 {{< alert title="Manually Open Dev Container" color="info" >}}
-If you don't see the notification described, press `F1` and type "Dev Containers: Reopen in Container". Then press enter to run the command.
+If you don't see the notification described, press `F1` and type "Dev Containers: Reopen in Container". Then press enter to run the command. If prompted, select "Drasi Server - Getting Started Tutorial" from the list of configurations.
 {{< /alert >}}
 
 ## Step 2: Wait for Setup
@@ -101,12 +101,13 @@ You now have Drasi Server accessible at `./bin/drasi-server` from the repository
 ### Port Forwarding
 
 The Dev Container automatically forwards ports to your local machine. Check the **Ports** tab in VS Code to access:
-- Port 8080 (Drasi Server API)
-- Port 8081 (SSE stream)
+- Port 8180 (Drasi Server API)
+- Port 8181 (SSE stream)
+- Port 5532 (PostgreSQL)
 
 ### Rebuild the Container
 
-If you change `.devcontainer/devcontainer.json`:
+If you change `.devcontainer/getting-started/devcontainer.json`:
 1. Press `F1`
 2. Select "Dev Containers: Rebuild Container"
 

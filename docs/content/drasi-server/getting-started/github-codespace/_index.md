@@ -21,11 +21,15 @@ Click the button below to create a new Codespace:
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/drasi-project/drasi-server)
 
+When prompted to select a **Dev Container Configuration**, choose **Drasi Server - Getting Started Tutorial**.
+
 Or manually:
 1. Go to [github.com/drasi-project/drasi-server](https://github.com/drasi-project/drasi-server)
 2. Click the green **Code** button
 3. Select the **Codespaces** tab
-4. Click **Create codespace on main**
+4. Click the **...** menu and select **New with options...**
+5. Under **Dev container configuration**, select **Drasi Server - Getting Started Tutorial**
+6. Click **Create codespace**
 
 ## Step 2: Wait for Setup
 
@@ -68,8 +72,9 @@ You now have Drasi Server accessible at `./bin/drasi-server` from the repository
 ### Port Forwarding
 
 The Codespace automatically forwards ports. Check the **Ports** tab to access:
-- Port 8080 (Drasi Server API)
-- Port 8081 (SSE stream)
+- Port 8180 (Drasi Server API)
+- Port 8181 (SSE stream)
+- Port 5532 (PostgreSQL)
 
 If you can't connect, right-click the port and select **Port Visibility → Public**.
 
